@@ -26,6 +26,11 @@ below are from the Google TV emulator.*
 
 ## Install
 
+**Just want to try it?** Download the APK from
+[Releases](https://github.com/nasd223/glass-home-android/releases) and
+`adb install` it (weather is off in the release build). For the weather, the
+Home button and the YouTube button, build it yourself:
+
 You need a computer on the same Wi-Fi as the Chromecast, with a JDK 17 and the
 Android SDK (`brew install openjdk@17 && brew install --cask android-commandlinetools`).
 
