@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Glass Home</string>
+    <string name="remote_buttons_label">Glass Home remote buttons</string>
+    <string name="remote_buttons_description">Makes the remote\'s YouTube button open your YouTube app (such as TizenTube) when the stock YouTube app is turned off. It only sees button presses, never what\'s on screen.</string>
     <color name="banner_bg">#FF1C2A33</color>
 
     <style name="Theme.GlassHome" parent="android:Theme.Material.NoActionBar.Fullscreen">

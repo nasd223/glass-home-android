@@ -72,6 +72,15 @@ screen. `--home` gets around that by disabling Google's launcher
 
 ![Hold OK on a tile](docs/menu.png)
 
+### The remote's YouTube button
+
+If you've turned off the stock YouTube app and use another one (TizenTube,
+say), the remote's YouTube button does nothing. `scripts/install.sh <tv-ip>
+--youtube-button` makes it open your YouTube app instead. It turns on Glass
+Home's accessibility service, which only sees remote button presses, never the
+screen; you can turn it off under **Settings > System > Accessibility > Glass
+Home remote buttons**. (Or turn it on there yourself, without the script.)
+
 ## Photos and shortcuts from your phone
 
 On a phone on the same Wi-Fi, open the address shown under **+** and sign in
@@ -84,7 +93,9 @@ phone out.
 
 ![The + panel](docs/add-panel.png)
 
-- **YouTube shortcuts** open the YouTube app at the video (and start time).
+- **YouTube shortcuts** open the YouTube app at the video (and start time), or,
+  if the stock YouTube app is turned off, the app that opens YouTube links
+  instead (such as TizenTube).
 - **Websites** need a web browser, and Google TV doesn't come with one. Install
   one from Google Play; until then the TV says so when you open a website.
 - **The website is plain HTTP** on your home network, as on Samsung. It only

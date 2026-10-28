@@ -52,5 +52,19 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- The remote's YouTube button: opens the YouTube app you use (see RemoteButtons). -->
+        <service
+            android:name=".RemoteButtons"
+            android:exported="false"
+            android:label="@string/remote_buttons_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/remote_buttons" />
+        </service>
     </application>
 </manifest>
