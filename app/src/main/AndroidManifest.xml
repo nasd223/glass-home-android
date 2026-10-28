@@ -15,6 +15,19 @@
         <intent>
             <action android:name="android.settings.SETTINGS" />
         </intent>
+        <!-- Quick settings (gear by the clock): which settings screens this TV has. -->
+        <intent>
+            <action android:name="android.settings.WIFI_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.DISPLAY_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.SOUND_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.MANAGE_APPLICATIONS_SETTINGS" />
+        </intent>
         <!-- Whether a real web browser is installed, for website shortcuts. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
         service = (application as GlassHomeApp).service
         apps = Apps(this)
         state = HomeState(apps, service)
+        state.quickSettings = QuickSettings.items(packageManager)
         photos = PhotoLibrary(this)
         val weather = if (Config.weather.enabled) WeatherSource(this, Config.weather) else null
         setContent {

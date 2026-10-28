@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
@@ -125,17 +127,22 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
     var phone by mutableStateOf<Phone?>(null)
     var menuFor by mutableStateOf<String?>(null)
     var addOpen by mutableStateOf(false)
+    /** The quick settings panel, from the gear by the clock. */
+    var settingsOpen by mutableStateOf(false)
+    var quickSettings by mutableStateOf<List<TvApp>>(emptyList())
     var focusedId by mutableStateOf<String?>(null)
     var focusedCenterX by mutableFloatStateOf(0f)
 
-    /** Set focusTarget and bump focusTick to move focus to a dock tile. */
+    /** Set focusTarget and bump focusTick to move focus to a dock tile (or the gear). */
     var focusTarget: String? = null
+    val requesters = mutableMapOf<String, FocusRequester>()
+    fun requester(id: String) = requesters.getOrPut(id) { FocusRequester() }
     var focusTick by mutableIntStateOf(0)
 
     @Volatile var lastInput = SystemClock.uptimeMillis()
 
     val dock: List<TvApp> get() = dockIds.mapNotNull { installed[it] } + shortcuts
-    val overlayOpen: Boolean get() = menuFor != null || addOpen
+    val overlayOpen: Boolean get() = menuFor != null || addOpen || settingsOpen
 
     fun focus(id: String?) {
         focusTarget = id ?: dock.firstOrNull()?.id ?: PLUS
@@ -145,6 +152,7 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
     fun goHome() {
         menuFor = null
         addOpen = false
+        settingsOpen = false
         ambient = false
         lastInput = SystemClock.uptimeMillis()
         focus(dock.firstOrNull()?.id)
@@ -207,6 +215,7 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
 
     companion object {
         const val PLUS = "@plus"
+        const val GEAR = "@gear"
     }
 }
 
@@ -243,7 +252,13 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
         Box(Modifier.fillMaxSize().alpha(chrome).padding(horizontal = 48.dp, vertical = 27.dp)) {
             Brand(Modifier.align(Alignment.TopStart))
             Column(Modifier.align(Alignment.TopEnd), horizontalAlignment = Alignment.End) {
-                Clock()
+                Row {
+                    if (state.quickSettings.isNotEmpty()) {
+                        GearButton(state, Modifier.padding(top = 9.dp))
+                        Spacer(Modifier.width(16.dp))
+                    }
+                    Column(horizontalAlignment = Alignment.End) { Clock() }
+                }
                 if (weather != null) WeatherView(weather, glass)
             }
             Column(
@@ -259,6 +274,7 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
 
         state.menuFor?.let { id -> state.dock.firstOrNull { it.id == id }?.let { TileMenu(state, it, glass) } }
         if (state.addOpen) AddPanel(state, glass)
+        if (state.settingsOpen) QuickSettingsPanel(state, glass, onLaunch)
     }
 }
 
@@ -534,8 +550,7 @@ private fun Modifier.tvClick(onLongPress: (() -> Unit)? = null, onClick: () -> U
 
 @Composable
 private fun Dock(state: HomeState, glass: MutableMap<String, GlassRect>, onLaunch: (TvApp) -> Unit) {
-    val requesters = remember { mutableMapOf<String, FocusRequester>() }
-    fun requester(id: String) = requesters.getOrPut(id) { FocusRequester() }
+    fun requester(id: String) = state.requester(id)
 
     LaunchedEffect(state.focusTick) {
         val target = state.focusTarget ?: return@LaunchedEffect
@@ -588,6 +603,7 @@ private fun FocusedLabel(state: HomeState) {
     val name = when (val id = state.focusedId) {
         null -> ""
         HomeState.PLUS -> "Add"
+        HomeState.GEAR -> ""
         else -> state.dock.firstOrNull { it.id == id }?.label ?: ""
     }
     Box(Modifier.fillMaxWidth().height(28.dp)) {
@@ -662,7 +678,74 @@ private fun Tile(
     )
 }
 
+/** The round gear button left of the clock: Up from the dock reaches it. */
+@Composable
+private fun GearButton(state: HomeState, modifier: Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, tween(160), label = "gear")
+    Box(
+        modifier
+            .size(44.dp)
+            .focusRequester(state.requester(HomeState.GEAR))
+            .focusProperties { canFocus = !state.overlayOpen }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) state.focusedId = HomeState.GEAR
+            }
+            .tvClick { state.settingsOpen = true }
+            .focusable()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(CircleShape)
+            .background(if (focused) Color.White else Color(0x33FFFFFF))
+            .border(1.dp, if (focused) Color.White else GlassBorder, CircleShape),
+    ) {
+        GearIcon(Modifier.align(Alignment.Center).size(24.dp), if (focused) Color(0xFF1C1C1E) else Color.White)
+    }
+}
+
+/** A gear: eight teeth on a ring, drawn so the app needs no icon library. */
+@Composable
+private fun GearIcon(modifier: Modifier, color: Color) {
+    // Its own layer, so clearing the centre hole only clears the gear.
+    Canvas(modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }) {
+        val c = center
+        val r = size.minDimension / 2
+        val tooth = androidx.compose.ui.geometry.Size(r * 0.42f, r * 0.5f)
+        repeat(8) { i ->
+            rotate(i * 45f, c) {
+                drawRoundRect(color, Offset(c.x - tooth.width / 2, c.y - r), tooth, CornerRadius(r * 0.08f))
+            }
+        }
+        drawCircle(color, r * 0.72f, c)
+        drawCircle(Color.Transparent, r * 0.3f, c, blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+    }
+}
+
 // ---------- overlays ----------
+
+/** Quick settings: below the clock, opened from the gear. */
+@Composable
+private fun QuickSettingsPanel(state: HomeState, glass: MutableMap<String, GlassRect>, onLaunch: (TvApp) -> Unit) {
+    val close = { state.settingsOpen = false; state.focus(HomeState.GEAR) }
+    BackHandler { close() }
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { awaitFrame(); runCatching { first.requestFocus() } }
+
+    Box(Modifier.fillMaxSize().background(Color(0x40000000)).padding(horizontal = 48.dp, vertical = 27.dp)) {
+        Column(
+            Modifier.align(Alignment.TopEnd).padding(top = 84.dp).width(280.dp)
+                .glass("quick", glass, 20.dp, GlassStrong).padding(10.dp),
+        ) {
+            Label("Quick settings", 15.sp, Modifier.padding(10.dp, 6.dp, 10.dp, 8.dp), weight = FontWeight.SemiBold)
+            state.quickSettings.forEachIndexed { i, item ->
+                MenuItem(item.label, if (i == 0) Modifier.focusRequester(first) else Modifier) {
+                    state.settingsOpen = false
+                    onLaunch(item)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun TileMenu(state: HomeState, app: TvApp, glass: MutableMap<String, GlassRect>) {

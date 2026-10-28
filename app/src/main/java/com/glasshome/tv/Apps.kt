@@ -64,7 +64,8 @@ class Apps(private val context: Context) {
             label = "Settings",
             banner = listed?.banner ?: resolved?.loadBanner(pm)?.toBitmap(320, 180)?.asImageBitmap(),
             icon = if (listed == null) resolved?.loadIcon(pm)?.toBitmap(96, 96)?.asImageBitmap() else listed.icon,
-            intent = settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            // A fresh task, so it opens at the top rather than on the screen last used.
+            intent = settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
         )
         return (apps.filter { it.id != settingsPkg } + settings).associateBy { it.id }
     }
