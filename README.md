@@ -4,7 +4,10 @@ A minimal, Apple TV-style home screen for the Chromecast with Google TV (and
 other Android TV devices). It's a port of
 [Glass Home for Samsung TVs](https://github.com/victaphu/glass-home-samsung-tv) (MIT).
 
-![Glass Home on the Google TV emulator](docs/home.png)
+![Glass Home on a real Chromecast with Google TV (HD), with TizenTube, Netflix, Prime Video, Disney+, Max and Apple TV in the dock](docs/chromecast.jpg)
+
+*On a real Chromecast with Google TV (HD model, Android 14). Other screenshots
+below are from the Google TV emulator.*
 
 - Full-screen photos that crossfade every 45 seconds with a slow drift: the
   same 12 CC0 nature photos mixed with your own, shuffled once a day.
