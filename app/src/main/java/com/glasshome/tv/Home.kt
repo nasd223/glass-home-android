@@ -739,7 +739,7 @@ private fun QuickSettingsPanel(state: HomeState, glass: MutableMap<String, Glass
             Label("Quick settings", 15.sp, Modifier.padding(10.dp, 6.dp, 10.dp, 8.dp), weight = FontWeight.SemiBold)
             state.quickSettings.forEachIndexed { i, item ->
                 MenuItem(item.label, if (i == 0) Modifier.focusRequester(first) else Modifier) {
-                    state.settingsOpen = false
+                    close()                 // so Back from the screen lands on the gear
                     onLaunch(item)
                 }
             }

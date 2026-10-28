@@ -72,10 +72,19 @@ screen. `--home` gets around that by disabling Google's launcher
 | OK | open the app, website or video |
 | Hold OK | Move left, Move right, Remove (from the dock, or the shortcut), Cancel |
 | OK on **+** | the website address and password; New password; add an app to the dock |
+| Up from the dock | the gear by the clock: quick settings (Wi-Fi, Display & Sound, Apps, All settings) |
 | Back | closes the menu or the panel; does nothing on the home screen |
 | Home | back to Glass Home, first tile selected |
 
 ![Hold OK on a tile](docs/menu.png)
+
+### Quick settings
+
+The gear beside the clock opens Wi-Fi, Display & Sound, Apps and All settings
+(any your TV doesn't have are left out). There's no "clear background apps":
+since Android 14 an app can only end its own background processes, so **Apps**
+opens the system list instead, where you can Force stop an app. Android TV
+also closes background apps by itself when it needs the memory.
 
 ### The remote's YouTube button
 
