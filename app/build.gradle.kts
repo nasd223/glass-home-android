@@ -14,6 +14,12 @@ val local = Properties().apply {
 fun localString(key: String, default: String) = "\"" + (local.getProperty(key) ?: default).replace("\"", "") + "\""
 fun localDouble(key: String) = (local.getProperty(key)?.toDoubleOrNull() ?: 0.0).toString()
 
+// The release signing key, kept out of git (see README, "Signing"). Without it,
+// release builds are signed with your own debug key.
+val keystore = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "com.glasshome.tv"
     compileSdk = 35
@@ -33,12 +39,20 @@ android {
         buildConfigField("boolean", "WEATHER_FAHRENHEIT", (local.getProperty("weather.fahrenheit") == "true").toString())
     }
 
+    signingConfigs {
+        if (keystore.getProperty("storeFile") != null) create("release") {
+            storeFile = file(keystore.getProperty("storeFile"))
+            storePassword = keystore.getProperty("storePassword")
+            keyAlias = keystore.getProperty("keyAlias")
+            keyPassword = keystore.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Signed with the debug key so `scripts/install.sh` works without a keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

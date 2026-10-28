@@ -121,6 +121,34 @@ screensaver delay, evening dimming hours, and the apps in the dock on first
 start. After the first start the dock is
 edited on the TV, and its order is kept on the device.
 
+## Signing
+
+Release builds are signed with the key named in `keystore.properties` (not in
+git) when that file exists, and with your own debug key otherwise. To make
+your own:
+
+```
+keytool -genkeypair -keystore ~/.android/glasshome-release.jks -storetype PKCS12 \
+  -alias glasshome -keyalg RSA -keysize 4096 -validity 10950
+```
+
+then copy its path, alias and password into `keystore.properties`:
+
+```
+storeFile=/Users/you/.android/glasshome-release.jks
+storePassword=...
+keyAlias=glasshome
+keyPassword=...
+```
+
+**Back up the keystore and its password.** Android only installs an update
+signed with the same key as the installed app, so without them no new version
+can update an installed copy; it has to be uninstalled first, losing its
+photos, shortcuts and settings.
+
+Release APKs on GitHub are signed with the key whose certificate SHA-256 is
+`ae8446e5b94b39ea87bc27371d3cae290a0eec511ba1a2ea2d2cb8689226ec94`.
+
 ## How it works
 
 One Kotlin app, using Jetpack Compose, plus OkHttp for fetching shortcut icons.

@@ -4,3 +4,6 @@ app/build/
 local.properties
 *.apk
 glasshome.properties
+keystore.properties
+*.jks
+*.keystore
