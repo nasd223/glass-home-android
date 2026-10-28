@@ -1,0 +1,8 @@
+# Copy to glasshome.properties (kept out of git) and fill in.
+# Weather is off while latitude and longitude are 0 or missing. Find them with
+# https://geocoding-api.open-meteo.com/v1/search?name=YOUR+TOWN
+weather.place=Springfield
+weather.latitude=0
+weather.longitude=0
+weather.timezone=auto
+weather.fahrenheit=false

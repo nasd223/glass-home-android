@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b1720">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glass Home">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="referrer" content="no-referrer">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Glass Home</title>
+<style nonce="{{NONCE}}">
+:root {
+  --text: #fff;
+  --text-2: rgba(235, 235, 245, 0.64);
+  --text-3: rgba(235, 235, 245, 0.40);
+  --glass: rgba(28, 28, 30, 0.56);
+  --glass-strong: rgba(28, 28, 30, 0.78);
+  --line: rgba(255, 255, 255, 0.10);
+  --fill: rgba(255, 255, 255, 0.08);
+  --fill-2: rgba(255, 255, 255, 0.14);
+  --accent: #8fe3da;
+  --danger: #ff6b63;
+  --radius: 22px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html {
+  color-scheme: dark; min-height: 100%;
+  background: #0b1720 radial-gradient(120% 80% at 0% 0%, #16303d 0%, #0b1720 55%, #071016 100%) no-repeat fixed;
+}
+body {
+  margin: 0; min-height: 100vh; color: var(--text); font: 16px/1.4 var(--font);
+  -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+  background: transparent;
+}
+[hidden] { display: none !important; }
+.backdrop { position: fixed; inset: -60px; z-index: -2; background-size: cover; background-position: center; filter: blur(34px) saturate(140%) brightness(0.62); transform: translateZ(0); opacity: 0; transition: opacity 0.8s ease; }
+.backdrop.on { opacity: 1; }
+.scrim { position: fixed; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(6, 12, 18, 0.30) 0%, rgba(6, 12, 18, 0.62) 100%); }
+.wrap { max-width: 560px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 40px); }
+.glass { background: var(--glass); -webkit-backdrop-filter: blur(26px) saturate(160%); backdrop-filter: blur(26px) saturate(160%); border: 1px solid var(--line); border-radius: var(--radius); }
+h1, h2 { margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; }
+p { margin: 0; }
+.hint { color: var(--text-2); font-size: 14px; line-height: 1.45; }
+.msg { min-height: 20px; font-size: 15px; color: var(--text-2); }
+.msg.bad { color: var(--danger); }
+.msg.good { color: var(--accent); }
+
+/* buttons and inputs */
+button, .btn { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 20px; border-radius: 14px; font-weight: 600; font-size: 17px; transition: transform 0.12s ease, background 0.2s ease, opacity 0.2s ease; user-select: none; -webkit-user-select: none; }
+.btn:active { transform: scale(0.97); }
+.btn.primary { background: #f5f5f7; color: #0b0b0d; }
+.btn.secondary { background: var(--fill-2); color: var(--text); }
+.btn.ghost { background: transparent; color: var(--text-2); }
+.btn.danger { background: rgba(255, 107, 99, 0.16); color: var(--danger); }
+.btn.block { width: 100%; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
+input[type=password], input[type=text], input[type=url] {
+  width: 100%; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.28); color: var(--text); font: 17px var(--font); outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease; -webkit-appearance: none; appearance: none;
+}
+input::placeholder { color: var(--text-3); }
+input:focus { border-color: rgba(143, 227, 218, 0.7); background: rgba(0, 0, 0, 0.36); }
+form { display: grid; gap: 10px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* sign in */
+.login { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+.login-card { width: 100%; max-width: 400px; padding: 34px 24px 26px; text-align: center; }
+.login-card .logo { width: 84px; height: 84px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: block; margin: 0 auto 18px; }
+.login-card h1 { font-size: 28px; font-weight: 700; }
+.login-card .hint { margin: 8px auto 22px; max-width: 300px; }
+.login-card form { text-align: left; }
+.login-card .msg { margin-top: 12px; text-align: center; }
+
+/* app */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 2px 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.top .addr { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border-radius: 13px; background: rgba(118, 118, 128, 0.24); margin-bottom: 16px; }
+.seg button { min-height: 36px; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--text-2); transition: background 0.2s ease, color 0.2s ease; }
+.seg button.on { background: rgba(255, 255, 255, 0.22); color: var(--text); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25); }
+.seg.small { display: inline-grid; padding: 2px; border-radius: 10px; margin: 0; }
+.seg.small button { min-height: 30px; padding: 0 14px; font-size: 14px; border-radius: 8px; }
+.card { padding: 18px; margin-bottom: 14px; }
+.tab { animation: rise 0.28s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* photos */
+.add-photos { display: grid; gap: 14px; }
+.optrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 15px; color: var(--text-2); }
+.progress { display: grid; gap: 8px; }
+.progress .ptext { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width 0.2s ease; }
+.meta { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 4px 10px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; border-radius: 16px; overflow: hidden; }
+.grid button { position: relative; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.grid img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.3s ease; }
+.grid img.ok { opacity: 1; }
+.empty { text-align: center; color: var(--text-2); font-size: 15px; padding: 26px 18px; }
+
+/* shortcuts */
+.sc-list { padding: 6px 0; margin-bottom: 14px; }
+#yt-msg:empty { display: none; }
+.sc-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.sc-row + .sc-row { border-top: 1px solid var(--line); }
+.ic { flex: none; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; background: var(--fill-2); font-weight: 700; font-size: 22px; position: relative; }
+.ic img { width: 100%; height: 100%; object-fit: cover; }
+.ic img.small { width: 60%; height: 60%; object-fit: contain; }
+.ic .play { position: absolute; right: 4px; bottom: 4px; width: 16px; height: 12px; border-radius: 3px; background: rgba(0, 0, 0, 0.6); }
+.ic .play::after { content: ""; position: absolute; left: 6px; top: 3px; border-left: 6px solid #fff; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
+.tx { flex: 1; min-width: 0; }
+.nm { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; width: 100%; }
+.sub { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act { display: flex; gap: 4px; flex: none; }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--fill); color: var(--text-2); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn[disabled] { opacity: 0.25; pointer-events: none; }
+.icon-btn.del.armed { background: rgba(255, 107, 99, 0.22); color: var(--danger); }
+.preview { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: rgba(0, 0, 0, 0.24); }
+.preview img { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--fill); }
+.preview .t { font-weight: 600; font-size: 15px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.preview .a { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+/* settings */
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 15px; }
+.kv + .kv { border-top: 1px solid var(--line); }
+.kv span { color: var(--text-2); }
+.kv b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; word-break: break-all; }
+
+/* viewer */
+.sheet { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, 0.62); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); animation: fade 0.2s ease both; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.sheet .inner { width: 100%; max-width: 560px; display: grid; gap: 14px; }
+.sheet img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 16px; background: var(--fill); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+.sheet .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.toast { position: fixed; left: 16px; right: 16px; margin: 0 auto; width: fit-content; width: -webkit-fit-content; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateY(20px); opacity: 0; z-index: 30; max-width: 520px; padding: 12px 18px; border-radius: 16px; background: var(--glass-strong); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); border: 1px solid var(--line); font-size: 15px; text-align: center; transition: opacity 0.25s ease, transform 0.25s ease; pointer-events: none; }
+.toast.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="backdrop" id="backdrop"></div>
+<div class="scrim"></div>
+
+<main class="wrap">
+  <section id="login" class="login" hidden>
+    <div class="login-card glass">
+      <img class="logo" src="/apple-touch-icon.png" alt="">
+      <h1>Glass Home</h1>
+      <p class="hint">Enter the password shown on the TV. To see it, select <b>+</b> at the end of the dock.</p>
+      <form id="login-form" autocomplete="on">
+        <input type="text" name="username" value="glass-home" autocomplete="username" hidden>
+        <input id="login-pw" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Password" required>
+        <button class="btn primary block" id="login-btn" type="submit">Sign in</button>
+      </form>
+      <p class="msg" id="login-msg" role="alert" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section id="main" hidden>
+    <header class="top">
+      <div class="brand"><img src="/apple-touch-icon.png" alt=""><span>Glass Home</span></div>
+      <span class="addr" id="top-addr"></span>
+    </header>
+    <nav class="seg" role="tablist">
+      <button type="button" data-tab="photos" role="tab">Photos</button>
+      <button type="button" data-tab="shortcuts" role="tab">Shortcuts</button>
+      <button type="button" data-tab="settings" role="tab">Settings</button>
+    </nav>
+
+    <div id="tab-photos" class="tab" hidden>
+      <div class="card glass add-photos">
+        <label class="btn primary block" for="file-input" id="add-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          Add photos
+        </label>
+        <input id="file-input" class="visually-hidden" type="file" accept="image/*" multiple>
+        <div class="optrow">
+          <span>Portrait photos</span>
+          <div class="seg small" id="fit-mode">
+            <button type="button" data-v="fit">Fit</button>
+            <button type="button" data-v="fill">Fill</button>
+          </div>
+        </div>
+        <p class="hint" id="fit-hint"></p>
+        <div class="progress" id="progress" hidden>
+          <div class="ptext" id="progress-text"></div>
+          <div class="bar"><i id="progress-bar"></i></div>
+        </div>
+      </div>
+      <div class="meta"><span id="photo-count"></span><span id="photo-bytes"></span></div>
+      <div class="grid" id="grid"></div>
+      <p class="empty" id="photos-empty" hidden>No photos yet. Add some and they join the nature set on the TV.</p>
+    </div>
+
+    <div id="tab-shortcuts" class="tab" hidden>
+      <div class="glass sc-list" id="sc-list"></div>
+      <p class="empty glass card" id="sc-empty" hidden>No shortcuts yet. Add a website or a YouTube video below.</p>
+      <div class="card glass">
+        <h2>Add a website</h2>
+        <form id="web-form">
+          <input id="web-url" type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="example.com" required>
+          <input id="web-name" type="text" maxlength="40" placeholder="Name on the TV (optional)">
+          <button class="btn primary block" type="submit" id="web-btn">Add website</button>
+        </form>
+      </div>
+      <div class="card glass">
+        <h2>Add a YouTube video</h2>
+        <form id="yt-form">
+          <input id="yt-url" type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Paste a YouTube link">
+          <div class="preview" id="yt-preview" hidden>
+            <img id="yt-thumb" alt="">
+            <div><div class="t" id="yt-title"></div><div class="a" id="yt-meta"></div></div>
+          </div>
+          <p class="msg" id="yt-msg" aria-live="polite"></p>
+          <button class="btn primary block" type="submit" id="yt-btn" disabled>Add video</button>
+        </form>
+      </div>
+      <p class="hint">Shortcuts sit after the apps on the TV's dock. On the TV, hold OK on a tile to move or remove it.</p>
+    </div>
+
+    <div id="tab-settings" class="tab" hidden>
+      <div class="card glass">
+        <h2>This TV</h2>
+        <div class="kv"><span>Address</span><b id="set-addr"></b></div>
+        <div class="kv"><span>Your photos</span><b id="set-photos"></b></div>
+        <div class="kv"><span>Space used</span><b id="set-bytes"></b></div>
+        <div class="kv"><span>Shortcuts</span><b id="set-sc"></b></div>
+      </div>
+      <div class="card glass">
+        <h2>Change password</h2>
+        <form id="pw-form" autocomplete="on">
+          <input type="text" name="username" value="glass-home" autocomplete="username" hidden>
+          <input id="pw-cur" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Current password" required>
+          <input id="pw-new" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="New password, 6 or more characters" required minlength="6">
+          <input id="pw-new2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="New password again" required minlength="6">
+          <button class="btn primary block" type="submit" id="pw-btn">Change password</button>
+        </form>
+        <p class="msg" id="pw-msg" aria-live="polite"></p>
+        <p class="hint">This signs out every other phone and computer. The TV shows the new password under <b>+</b> on its dock.</p>
+      </div>
+      <button class="btn secondary block" type="button" id="signout">Sign out</button>
+    </div>
+  </section>
+</main>
+
+<div class="sheet" id="viewer" hidden>
+  <div class="inner">
+    <img id="viewer-img" alt="">
+    <div class="buttons">
+      <button class="btn danger" type="button" id="viewer-del">Delete from TV</button>
+      <button class="btn secondary" type="button" id="viewer-close">Done</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script nonce="{{NONCE}}">/*@@YTPARSE@@*/</script>
+<script nonce="{{NONCE}}">
+(function () {
+  'use strict';
+  var YT = window.GHYouTube;
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { me: null, photos: [], limits: null, shortcuts: [], tab: 'photos', busy: false };
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+  };
+
+  // ---------- helpers ----------
+  function api(method, path, body) {
+    var headers = { 'X-GH': '1' };
+    var init = { method: method, headers: headers, credentials: 'same-origin', cache: 'no-store' };
+    if (body !== undefined) { headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
+    return fetch(path, init).then(function (r) {
+      return r.text().then(function (t) {
+        var data = null;
+        try { data = t ? JSON.parse(t) : null; } catch (e) { data = null; }
+        if (r.status === 401 && data && data.error === 'signin') showLogin();
+        return { status: r.status, data: data || {}, headers: r.headers };
+      });
+    }, function () { return { status: 0, data: { error: 'offline' } }; });
+  }
+
+  function mb(bytes) {
+    var v = (bytes || 0) / (1024 * 1024);
+    return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + ' MB';
+  }
+
+  var toastTimer = null;
+  function toast(text, ms) {
+    var t = $('toast');
+    t.textContent = text;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('on'); }, ms || 3000);
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function svg(path) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(ns, 'svg');
+    s.setAttribute('viewBox', '0 0 20 20');
+    s.setAttribute('aria-hidden', 'true');
+    var p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', path);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', 'currentColor');
+    p.setAttribute('stroke-width', '2');
+    p.setAttribute('stroke-linecap', 'round');
+    p.setAttribute('stroke-linejoin', 'round');
+    s.appendChild(p);
+    return s;
+  }
+
+  // Two-step confirmation on one button: first tap arms it for 3 seconds.
+  function armed(btn, label) {
+    if (btn.dataset.armed === '1') { btn.dataset.armed = ''; btn.classList.remove('armed'); return true; }
+    btn.dataset.armed = '1';
+    btn.classList.add('armed');
+    var old = btn.dataset.label || btn.textContent;
+    btn.dataset.label = old;
+    if (label) btn.textContent = label;
+    setTimeout(function () {
+      btn.dataset.armed = '';
+      btn.classList.remove('armed');
+      if (label) btn.textContent = old;
+    }, 3000);
+    return false;
+  }
+
+  function monogramColor(seed) {
+    var h = 0;
+    for (var i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    var hues = [192, 168, 210, 260, 330, 18, 40, 140];
+    var hue = hues[h % hues.length];
+    return 'linear-gradient(145deg, hsl(' + hue + ', 55%, 42%), hsl(' + ((hue + 30) % 360) + ', 60%, 24%))';
+  }
+
+  // ---------- backdrop ----------
+  (function () {
+    var img = new Image();
+    img.onload = function () {
+      var b = $('backdrop');
+      b.style.backgroundImage = 'url("/bg.jpg")';
+      b.classList.add('on');
+    };
+    img.src = '/bg.jpg';
+  }());
+
+  // ---------- sign in ----------
+  var lockTimer = null;
+  function showLogin() {
+    $('main').hidden = true;
+    $('login').hidden = false;
+    setTimeout(function () { try { $('login-pw').focus(); } catch (e) { /* ignore */ } }, 50);
+  }
+
+  function lockCountdown(seconds) {
+    var btn = $('login-btn');
+    var msg = $('login-msg');
+    var end = Date.now() + seconds * 1000;
+    btn.disabled = true;
+    clearInterval(lockTimer);
+    function tick() {
+      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      if (!left) { clearInterval(lockTimer); btn.disabled = false; msg.className = 'msg'; msg.textContent = 'You can try again now.'; return; }
+      var m = Math.floor(left / 60);
+      var s = left % 60;
+      msg.className = 'msg bad';
+      msg.textContent = 'Too many wrong tries. Try again in ' + m + ':' + (s < 10 ? '0' : '') + s + '.';
+    }
+    tick();
+    lockTimer = setInterval(tick, 1000);
+  }
+
+  $('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pw = $('login-pw').value;
+    var msg = $('login-msg');
+    var btn = $('login-btn');
+    if (!pw) return;
+    btn.disabled = true;
+    msg.className = 'msg';
+    msg.textContent = 'Checking...';
+    api('POST', '/api/login', { password: pw }).then(function (r) {
+      btn.disabled = false;
+      if (r.status === 200) { $('login-pw').value = ''; msg.textContent = ''; return boot(); }
+      if (r.status === 429) return lockCountdown(r.data.retryAfter || 300);
+      msg.className = 'msg bad';
+      if (r.status === 401) {
+        var n = r.data.remaining;
+        msg.textContent = 'Wrong password.' + (n > 0 && n < 4 ? ' ' + n + (n === 1 ? ' try' : ' tries') + ' left before a 5-minute pause.' : '');
+      } else if (r.status === 503) msg.textContent = 'The TV is busy. Try again in a moment.';
+      else if (r.status === 0) msg.textContent = 'Can’t reach the TV. Is it on?';
+      else msg.textContent = 'Something went wrong (' + r.status + ').';
+    });
+  });
+
+  // ---------- main ----------
+  function showMain() {
+    $('login').hidden = true;
+    $('main').hidden = false;
+  }
+
+  function setTab(tab) {
+    if (['photos', 'shortcuts', 'settings'].indexOf(tab) < 0) tab = 'photos';
+    state.tab = tab;
+    store.set('gh.tab', tab);
+    Array.prototype.forEach.call(document.querySelectorAll('.seg [data-tab]'), function (b) {
+      var on = b.getAttribute('data-tab') === tab;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    ['photos', 'shortcuts', 'settings'].forEach(function (t) { $('tab-' + t).hidden = t !== tab; });
+    if (tab === 'shortcuts') loadShortcuts();
+    if (tab === 'settings') renderSettings();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.seg [data-tab]'), function (b) {
+    b.addEventListener('click', function () { setTab(b.getAttribute('data-tab')); });
+  });
+
+  function boot() {
+    return api('GET', '/api/me').then(function (r) {
+      if (r.status !== 200) { if (r.status !== 401) { showLogin(); $('login-msg').textContent = r.status === 0 ? 'Can’t reach the TV. Is it on?' : ''; } return; }
+      state.me = r.data;
+      state.limits = r.data.limits;
+      var addr = r.data.tv && r.data.tv.url ? r.data.tv.url.replace(/^https?:\/\//, '') : location.host;
+      $('top-addr').textContent = addr;
+      showMain();
+      var wanted = (location.hash || '').replace('#', '') || store.get('gh.tab') || 'photos';
+      setTab(wanted);
+      loadPhotos();
+    });
+  }
+
+  // ---------- photos ----------
+  var fitMode = store.get('gh.fit') === 'fill' ? 'fill' : 'fit';
+  function renderFitMode() {
+    Array.prototype.forEach.call(document.querySelectorAll('#fit-mode button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-v') === fitMode);
+    });
+    $('fit-hint').textContent = fitMode === 'fit'
+      ? 'Photos are resized on this phone to 1920 × 1080 before sending. Portrait photos keep their whole picture, on soft blurred edges.'
+      : 'Photos are resized on this phone to 1920 × 1080 before sending. Portrait photos are cropped to fill the screen.';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#fit-mode button'), function (b) {
+    b.addEventListener('click', function () { fitMode = b.getAttribute('data-v'); store.set('gh.fit', fitMode); renderFitMode(); });
+  });
+  renderFitMode();
+
+  function loadPhotos() {
+    return api('GET', '/api/photos').then(function (r) {
+      if (r.status !== 200) return;
+      state.photos = r.data.photos || [];
+      state.limits = r.data.limits;
+      renderPhotos();
+    });
+  }
+
+  function renderLimits() {
+    var l = state.limits;
+    if (!l) return;
+    $('photo-count').textContent = l.photos + (l.photos === 1 ? ' photo' : ' photos') + ' of ' + l.maxPhotos;
+    $('photo-bytes').textContent = mb(l.bytes) + ' of ' + mb(l.maxBytes);
+  }
+
+  function photoTile(p) {
+    var b = el('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Photo');
+    var img = new Image();
+    img.alt = '';
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    img.onload = function () { img.classList.add('ok'); };
+    img.onerror = function () { if (img.src.indexOf('/thumbs/') >= 0) img.src = '/media/photos/' + p.id + '.jpg'; };
+    img.src = p.thumb ? '/media/thumbs/' + p.id + '.jpg' : '/media/photos/' + p.id + '.jpg';
+    b.appendChild(img);
+    b.addEventListener('click', function () { openViewer(p); });
+    return b;
+  }
+
+  function renderPhotos() {
+    renderLimits();
+    var grid = $('grid');
+    grid.textContent = '';
+    state.photos.forEach(function (p) { grid.appendChild(photoTile(p)); });
+    $('photos-empty').hidden = state.photos.length > 0;
+  }
+
+  var viewing = null;
+  function openViewer(p) {
+    viewing = p;
+    $('viewer-img').src = '/media/photos/' + p.id + '.jpg';
+    var del = $('viewer-del');
+    del.textContent = 'Delete from TV';
+    del.dataset.armed = '';
+    del.dataset.label = '';
+    $('viewer').hidden = false;
+  }
+  function closeViewer() { $('viewer').hidden = true; $('viewer-img').removeAttribute('src'); viewing = null; }
+  $('viewer-close').addEventListener('click', closeViewer);
+  $('viewer').addEventListener('click', function (e) { if (e.target === $('viewer')) closeViewer(); });
+  $('viewer-del').addEventListener('click', function () {
+    var btn = $('viewer-del');
+    if (!viewing || !armed(btn, 'Tap again to delete')) return;
+    var id = viewing.id;
+    btn.disabled = true;
+    api('DELETE', '/api/photos/' + id).then(function (r) {
+      btn.disabled = false;
+      if (r.status !== 200) return toast('Couldn’t delete that photo.');
+      state.photos = state.photos.filter(function (x) { return x.id !== id; });
+      state.limits = r.data.limits || state.limits;
+      renderPhotos();
+      closeViewer();
+      toast('Photo deleted from the TV.');
+    });
+  });
+
+  // Image pipeline: decode on the phone (EXIF rotation applied by the
+  // browser), centre-crop or fit to 16:9, resize to 1920x1080, JPEG 0.85.
+  function decodeFile(file) {
+    function viaImg() {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.decoding = 'async';
+        img.onload = function () {
+          resolve({ src: img, w: img.naturalWidth, h: img.naturalHeight, close: function () { URL.revokeObjectURL(url); } });
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('unreadable')); };
+        img.src = url;
+      });
+    }
+    function viaBitmap() {
+      if (!window.createImageBitmap) return Promise.reject(new Error('unreadable'));
+      return createImageBitmap(file).then(function (b) {
+        return { src: b, w: b.width, h: b.height, close: function () { if (b.close) b.close(); } };
+      });
+    }
+    return viaImg().catch(viaBitmap);
+  }
+
+  function canvas(w, h) {
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+
+  // Halves the image step by step before the final draw, which keeps detail
+  // when a 12 MP photo shrinks to 1920 px (a single bilinear step aliases).
+  // iOS Safari keeps canvas memory until it is shrunk, and refuses new canvases
+  // past a total limit, so every temporary canvas is released right after use.
+  function release(c) { if (c && c.getContext) { c.width = 0; c.height = 0; } }
+
+  function drawScaled(ctx, src, sx, sy, sw, sh, dx, dy, dw, dh) {
+    var cur = src;
+    while (sw > dw * 2 && sh > dh * 2) {
+      var nw = Math.round(sw / 2);
+      var nh = Math.round(sh / 2);
+      var tmp = canvas(nw, nh);
+      var t = tmp.getContext('2d');
+      t.imageSmoothingEnabled = true;
+      t.imageSmoothingQuality = 'high';
+      t.drawImage(cur, sx, sy, sw, sh, 0, 0, nw, nh);
+      if (cur !== src) release(cur);
+      cur = tmp; sx = 0; sy = 0; sw = nw; sh = nh;
+    }
+    ctx.drawImage(cur, sx, sy, sw, sh, dx, dy, dw, dh);
+    if (cur !== src) release(cur);
+  }
+
+  function renderPhoto(d, mode) {
+    var W = 1920, H = 1080;
+    var c = canvas(W, H);
+    var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    var a = d.w / d.h;
+    var portrait = a < 1.25;
+    var sx = 0, sy = 0, sw = d.w, sh = d.h;
+    if (a > W / H) { sw = d.h * W / H; sx = (d.w - sw) / 2; }
+    else { sh = d.w * H / W; sy = (d.h - sh) * (portrait ? 0.4 : 0.5); }
+    if (mode === 'fit' && portrait) {
+      // Soft background: the cover crop shrunk to a few pixels, then enlarged.
+      var tiny = canvas(32, 18);
+      var tc = tiny.getContext('2d');
+      tc.imageSmoothingQuality = 'high';
+      drawScaled(tc, d.src, sx, sy, sw, sh, 0, 0, 32, 18);
+      var mid = canvas(192, 108);
+      var mc = mid.getContext('2d');
+      mc.imageSmoothingQuality = 'high';
+      mc.drawImage(tiny, 0, 0, 192, 108);
+      ctx.drawImage(mid, 0, 0, W, H);
+      release(tiny);
+      release(mid);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx.fillRect(0, 0, W, H);
+      var w = Math.round(H * a);
+      var x = Math.round((W - w) / 2);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 60;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, 0, w, H);
+      ctx.restore();
+      drawScaled(ctx, d.src, 0, 0, d.w, d.h, x, 0, w, H);
+    } else {
+      drawScaled(ctx, d.src, sx, sy, sw, sh, 0, 0, W, H);
+    }
+    return c;
+  }
+
+  function toJpeg(c, q) {
+    return new Promise(function (resolve, reject) {
+      if (c.toBlob) c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('encode')); }, 'image/jpeg', q);
+      else reject(new Error('encode'));
+    });
+  }
+
+  function thumbOf(c) {
+    var t = canvas(480, 270);
+    var tc = t.getContext('2d');
+    tc.imageSmoothingQuality = 'high';
+    drawScaled(tc, c, 0, 0, c.width, c.height, 0, 0, 480, 270);
+    return toJpeg(t, 0.8).then(function (b) { release(t); return b; });
+  }
+
+  function sendBlob(method, path, blob, onProgress) {
+    return new Promise(function (resolve) {
+      var x = new XMLHttpRequest();
+      x.open(method, path);
+      x.setRequestHeader('X-GH', '1');
+      x.setRequestHeader('Content-Type', 'image/jpeg');
+      x.withCredentials = true;
+      if (x.upload && onProgress) x.upload.onprogress = function (e) { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+      x.onload = function () {
+        var data = {};
+        try { data = x.responseText ? JSON.parse(x.responseText) : {}; } catch (e) { data = {}; }
+        if (x.status === 401) showLogin();
+        resolve({ status: x.status, data: data });
+      };
+      x.onerror = function () { resolve({ status: 0, data: {} }); };
+      x.send(blob);
+    });
+  }
+
+  function setProgress(text, frac) {
+    $('progress').hidden = false;
+    $('progress-text').textContent = text;
+    $('progress-bar').style.width = Math.round(Math.max(0, Math.min(1, frac)) * 100) + '%';
+  }
+
+  $('file-input').addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    if (!files.length || state.busy) return;
+    state.busy = true;
+    $('add-btn').setAttribute('aria-disabled', 'true');
+    var added = 0;
+    var failed = [];
+    var stopped = null;
+    var i = 0;
+    function next() {
+      if (i >= files.length || stopped) return finish();
+      var file = files[i];
+      var n = i + 1;
+      var base = i / files.length;
+      var step = 1 / files.length;
+      i += 1;
+      setProgress('Preparing ' + n + ' of ' + files.length + '…', base);
+      var decoded = null;
+      var full = null;
+      decodeFile(file).then(function (d) {
+        decoded = d;
+        var c = renderPhoto(d, fitMode);
+        decoded.close();
+        decoded = null;
+        return toJpeg(c, 0.85).then(function (b) { full = b; return thumbOf(c); })
+          .then(function (t) { release(c); return t; });
+      }).then(function (thumb) {
+        setProgress('Sending ' + n + ' of ' + files.length + '…', base + step * 0.1);
+        return sendBlob('POST', '/api/photos', full, function (f) { setProgress('Sending ' + n + ' of ' + files.length + '…', base + step * (0.1 + 0.85 * f)); })
+          .then(function (r) {
+            if (r.status === 201) {
+              state.photos.unshift(r.data.photo);
+              state.limits = r.data.limits || state.limits;
+              added += 1;
+              renderPhotos();
+              return sendBlob('PUT', '/api/photos/' + r.data.photo.id + '/thumb', thumb).then(function (t) {
+                if (t.status === 204) { r.data.photo.thumb = true; }
+              });
+            }
+            if (r.status === 507) { stopped = 'The TV’s photo space is full (' + (state.limits ? state.limits.maxPhotos + ' photos or ' + mb(state.limits.maxBytes) : 'limit reached') + ').'; return; }
+            if (r.status === 401) { stopped = 'Signed out.'; return; }
+            failed.push(file.name || ('photo ' + n));
+          });
+      }).catch(function () {
+        if (decoded) { try { decoded.close(); } catch (x) { /* ignore */ } }
+        failed.push(file.name || ('photo ' + n));
+      }).then(next);
+    }
+    function finish() {
+      state.busy = false;
+      $('add-btn').removeAttribute('aria-disabled');
+      setProgress(added + ' of ' + files.length + ' added', 1);
+      setTimeout(function () { $('progress').hidden = true; }, 2500);
+      renderPhotos();
+      if (stopped) toast(stopped, 5000);
+      else if (failed.length) toast(failed.length + (failed.length === 1 ? ' photo' : ' photos') + ' couldn’t be read: ' + failed.slice(0, 2).join(', '), 5000);
+      else toast(added === 1 ? 'Photo added. It shows on the TV next.' : added + ' photos added. They show on the TV next.');
+    }
+    next();
+  });
+
+  // ---------- shortcuts ----------
+  var scPoll = 0;
+  var scTimer = null;
+  function loadShortcuts() {
+    return api('GET', '/api/shortcuts').then(function (r) {
+      if (r.status !== 200) return;
+      state.shortcuts = r.data.shortcuts || [];
+      state.limits = r.data.limits || state.limits;
+      renderShortcuts();
+      var pending = state.shortcuts.some(function (s) { return s.iconState === 'pending' || s.iconState === 'retry'; });
+      clearTimeout(scTimer);
+      if (pending && scPoll < 8) { scPoll += 1; scTimer = setTimeout(loadShortcuts, 2500); }
+      else scPoll = 0;
+    });
+  }
+
+  function iconFor(s) {
+    var box = el('div', 'ic');
+    if (s.icon) {
+      var img = new Image();
+      img.alt = '';
+      img.src = s.icon;
+      if (s.type === 'web' && s.iconW && s.iconW < 96) img.className = 'small';
+      img.onerror = function () { box.textContent = (s.name || '?').charAt(0).toUpperCase(); box.style.background = monogramColor(s.url || s.name); };
+      box.appendChild(img);
+    } else {
+      box.textContent = (s.name || '?').trim().charAt(0).toUpperCase();
+      box.style.background = monogramColor(s.url || s.name || '');
+    }
+    if (s.type === 'youtube') box.appendChild(el('span', 'play'));
+    return box;
+  }
+
+  function subtitle(s) {
+    if (s.type === 'youtube') {
+      var t = s.playlistId && !s.videoId ? 'YouTube playlist' : 'YouTube video';
+      if (s.start) t += ' · starts at ' + YT.formatStart(s.start);
+      return t;
+    }
+    return String(s.url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  }
+
+  function renderShortcuts() {
+    var list = $('sc-list');
+    list.textContent = '';
+    list.hidden = !state.shortcuts.length;
+    $('sc-empty').hidden = !!state.shortcuts.length;
+    state.shortcuts.forEach(function (s, idx) {
+      var row = el('div', 'sc-row');
+      row.appendChild(iconFor(s));
+      var tx = el('div', 'tx');
+      var nm = el('button', 'nm', s.name);
+      nm.type = 'button';
+      nm.title = 'Rename';
+      nm.addEventListener('click', function () { rename(s); });
+      tx.appendChild(nm);
+      tx.appendChild(el('div', 'sub', subtitle(s)));
+      row.appendChild(tx);
+      var act = el('div', 'act');
+      var up = el('button', 'icon-btn');
+      up.type = 'button';
+      up.setAttribute('aria-label', 'Move earlier');
+      up.appendChild(svg('M10 15V5M5 10l5-5 5 5'));
+      up.disabled = idx === 0;
+      up.addEventListener('click', function () { move(idx, -1); });
+      var down = el('button', 'icon-btn');
+      down.type = 'button';
+      down.setAttribute('aria-label', 'Move later');
+      down.appendChild(svg('M10 5v10M5 10l5 5 5-5'));
+      down.disabled = idx === state.shortcuts.length - 1;
+      down.addEventListener('click', function () { move(idx, 1); });
+      var del = el('button', 'icon-btn del');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Remove');
+      del.appendChild(svg('M5 5l10 10M15 5L5 15'));
+      del.addEventListener('click', function () {
+        if (!armed(del)) { toast('Tap × again to remove ' + s.name + '.', 2500); return; }
+        api('DELETE', '/api/shortcuts/' + s.id).then(function (r) {
+          if (r.status !== 200) return toast('Couldn’t remove it.');
+          state.shortcuts = state.shortcuts.filter(function (x) { return x.id !== s.id; });
+          renderShortcuts();
+          toast('Removed from the TV.');
+        });
+      });
+      act.appendChild(up);
+      act.appendChild(down);
+      act.appendChild(del);
+      row.appendChild(act);
+      list.appendChild(row);
+    });
+  }
+
+  function move(idx, d) {
+    var j = idx + d;
+    if (j < 0 || j >= state.shortcuts.length) return;
+    var arr = state.shortcuts.slice();
+    var t = arr[idx]; arr[idx] = arr[j]; arr[j] = t;
+    state.shortcuts = arr;
+    renderShortcuts();
+    api('POST', '/api/shortcuts/order', { ids: arr.map(function (s) { return s.id; }) }).then(function (r) {
+      if (r.status !== 200) { toast('Couldn’t save the new order.'); loadShortcuts(); }
+    });
+  }
+
+  function rename(s) {
+    var name = window.prompt('Name on the TV', s.name);
+    if (name == null) return;
+    name = name.trim();
+    if (!name || name === s.name) return;
+    api('PATCH', '/api/shortcuts/' + s.id, { name: name }).then(function (r) {
+      if (r.status !== 200) return toast('Couldn’t rename it.');
+      s.name = r.data.shortcut.name;
+      renderShortcuts();
+    });
+  }
+
+  $('web-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var url = $('web-url').value.trim();
+    var name = $('web-name').value.trim();
+    if (!url) return;
+    if (YT.parse(url)) {
+      $('yt-url').value = url;
+      $('web-url').value = '';
+      ytChanged();
+      toast('That’s a YouTube link, so it goes in as a video.');
+      $('yt-url').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    var btn = $('web-btn');
+    btn.disabled = true;
+    api('POST', '/api/shortcuts', { type: 'web', url: url, name: name }).then(function (r) {
+      btn.disabled = false;
+      if (r.status === 201) {
+        $('web-url').value = '';
+        $('web-name').value = '';
+        toast(r.data.shortcut.name + ' added to the TV.');
+        scPoll = 0;
+        return loadShortcuts();
+      }
+      if (r.status === 400) return toast('That address doesn’t look right.');
+      if (r.status === 507) return toast('That’s the most shortcuts the dock holds.');
+      toast('Couldn’t add it (' + r.status + ').');
+    });
+  });
+
+  var ytTimer = null;
+  var ytSeq = 0;
+  var ytCurrent = null;
+  function ytChanged() {
+    var v = $('yt-url').value.trim();
+    var p = v ? YT.parse(v) : null;
+    var msg = $('yt-msg');
+    $('yt-btn').disabled = !p;
+    clearTimeout(ytTimer);
+    ytCurrent = null;
+    if (!v) { $('yt-preview').hidden = true; msg.textContent = ''; return; }
+    if (!p) { $('yt-preview').hidden = true; msg.className = 'msg bad'; msg.textContent = 'That isn’t a YouTube video or playlist link.'; return; }
+    msg.className = 'msg';
+    msg.textContent = '';
+    $('yt-preview').hidden = false;
+    $('yt-title').textContent = p.videoId ? 'YouTube video' : 'YouTube playlist';
+    $('yt-meta').textContent = p.start ? 'Starts at ' + YT.formatStart(p.start) : 'Loading details…';
+    $('yt-thumb').removeAttribute('src');
+    var seq = ++ytSeq;
+    ytTimer = setTimeout(function () {
+      api('GET', '/api/youtube/preview?url=' + encodeURIComponent(v)).then(function (r) {
+        if (seq !== ytSeq || r.status !== 200) return;
+        ytCurrent = r.data;
+        if (r.data.title) $('yt-title').textContent = r.data.title;
+        var meta = [];
+        if (r.data.author) meta.push(r.data.author);
+        if (r.data.playlistId && !r.data.videoId) meta.push('playlist');
+        if (r.data.start) meta.push('starts at ' + YT.formatStart(r.data.start));
+        $('yt-meta').textContent = meta.join(' · ') || 'Details unavailable';
+        if (r.data.thumb) $('yt-thumb').src = r.data.thumb;
+      });
+    }, 350);
+  }
+  $('yt-url').addEventListener('input', ytChanged);
+  $('yt-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('yt-url').value.trim();
+    if (!YT.parse(v)) return;
+    var btn = $('yt-btn');
+    btn.disabled = true;
+    var name = ytCurrent && ytCurrent.title ? ytCurrent.title : '';
+    api('POST', '/api/shortcuts', { type: 'youtube', url: v, name: name }).then(function (r) {
+      btn.disabled = false;
+      if (r.status === 201) {
+        $('yt-url').value = '';
+        ytChanged();
+        toast('Added to the TV.');
+        scPoll = 0;
+        return loadShortcuts();
+      }
+      if (r.status === 507) return toast('That’s the most shortcuts the dock holds.');
+      toast('Couldn’t add it (' + r.status + ').');
+    });
+  });
+
+  // ---------- settings ----------
+  function renderSettings() {
+    api('GET', '/api/me').then(function (r) {
+      if (r.status !== 200) return;
+      var l = r.data.limits;
+      $('set-addr').textContent = r.data.tv && r.data.tv.url ? r.data.tv.url : location.origin;
+      $('set-photos').textContent = l.photos + ' of ' + l.maxPhotos;
+      $('set-bytes').textContent = mb(l.bytes) + ' of ' + mb(l.maxBytes);
+      $('set-sc').textContent = l.shortcuts + ' of ' + l.maxShortcuts;
+    });
+  }
+
+  $('pw-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var cur = $('pw-cur').value;
+    var a = $('pw-new').value;
+    var b = $('pw-new2').value;
+    var msg = $('pw-msg');
+    msg.className = 'msg bad';
+    if (a !== b) { msg.textContent = 'The new passwords don’t match.'; return; }
+    if (a.length < 6) { msg.textContent = 'Use 6 or more characters.'; return; }
+    if (/^\s|\s$/.test(a)) { msg.textContent = 'No spaces at the start or end, please.'; return; }
+    var btn = $('pw-btn');
+    btn.disabled = true;
+    msg.className = 'msg';
+    msg.textContent = 'Saving…';
+    api('POST', '/api/password', { current: cur, next: a }).then(function (r) {
+      btn.disabled = false;
+      if (r.status === 200) {
+        $('pw-cur').value = ''; $('pw-new').value = ''; $('pw-new2').value = '';
+        msg.className = 'msg good';
+        msg.textContent = 'Password changed. Other devices are signed out.';
+        return;
+      }
+      msg.className = 'msg bad';
+      if (r.status === 401) msg.textContent = 'The current password is wrong.';
+      else if (r.status === 429) msg.textContent = 'Too many wrong tries. Wait ' + Math.ceil((r.data.retryAfter || 300) / 60) + ' minutes.';
+      else if (r.status === 400) msg.textContent = 'Choose a password of 6 or more characters.';
+      else msg.textContent = 'Couldn’t change it (' + r.status + ').';
+    });
+  });
+
+  $('signout').addEventListener('click', function () {
+    api('POST', '/api/logout').then(function () { showLogin(); });
+  });
+
+  boot();
+}());
+</script>
+</body>
+</html>
