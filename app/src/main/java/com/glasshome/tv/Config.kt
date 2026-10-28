@@ -35,6 +35,7 @@ object Config {
     // Settings. Afterwards the dock is edited on the TV (hold OK, or +).
     val defaultDock = listOf(
         "com.google.android.youtube.tv",
+        "io.gh.reisxd.tizentube.cobalt",       // TizenTube, for when stock YouTube is off
         "com.netflix.ninja",
         "com.amazon.amazonvideo.livingroom",
         "com.disney.disneyplus",
