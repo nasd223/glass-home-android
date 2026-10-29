@@ -7,3 +7,8 @@ glasshome.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Claude Code config (local only)
+.claude/
+.claudeignore
+CLAUDE.md
