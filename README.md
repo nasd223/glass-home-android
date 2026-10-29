@@ -17,7 +17,7 @@ below are from the Google TV emulator.*
   [Open-Meteo](https://open-meteo.com/), no account or key). Select it (or
   **Set weather location**) and press OK to enter a ZIP or postal code; it
   picks °F or °C by country, and the panel can switch units or turn it off.
-- A screensaver (only the photos after 3 minutes idle; the first button press
+- A screensaver (after 3 minutes idle, only the photos, the clock and today's weather; the first button press
   just wakes the screen) and dimmed photos in the evening.
 - **+** shows the address and password of the TV's photo website. Open it on
   your phone to upload photos (resized on the phone, so iPhone HEIC works) and

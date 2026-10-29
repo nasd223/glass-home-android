@@ -265,16 +265,6 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource, o
 
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = chrome }.padding(horizontal = 48.dp, vertical = 27.dp)) {
             Brand(Modifier.align(Alignment.TopStart).cached())
-            Column(Modifier.align(Alignment.TopEnd).cached(), horizontalAlignment = Alignment.End) {
-                Row {
-                    if (state.quickSettings.isNotEmpty()) {
-                        GearButton(state, Modifier.padding(top = 9.dp))
-                        Spacer(Modifier.width(16.dp))
-                    }
-                    Column(horizontalAlignment = Alignment.End) { Clock() }
-                }
-                WeatherView(state, weather, glass)
-            }
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -284,6 +274,20 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource, o
                 Spacer(Modifier.height(18.dp))
             }
             Label(caption, 9.sp, Modifier.align(Alignment.BottomStart).cached(), color = Text2)
+        }
+        // The clock and today's weather stay on the screensaver; the gear and
+        // the forecast panel fade with the rest.
+        Box(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp)) {
+            Column(Modifier.align(Alignment.TopEnd).cached(), horizontalAlignment = Alignment.End) {
+                Row {
+                    if (state.quickSettings.isNotEmpty()) {
+                        GearButton(state, Modifier.padding(top = 9.dp).graphicsLayer { alpha = chrome })
+                        Spacer(Modifier.width(16.dp))
+                    }
+                    Column(horizontalAlignment = Alignment.End) { Clock() }
+                }
+                WeatherView(state, weather, glass) { chrome }
+            }
         }
 
         state.menuFor?.let { id -> state.dock.firstOrNull { it.id == id }?.let { TileMenu(state, it, glass) } }
@@ -501,7 +505,7 @@ private fun Brand(modifier: Modifier) {
             drawRoundRect(Mint, Offset(240 * s, 464 * s), Size(180 * s, 30 * s), CornerRadius(15 * s))
         }
         Spacer(Modifier.width(10.dp))
-        Label("Glass Home", 23.sp, weight = FontWeight.SemiBold)
+        Label("Welcome Home", 23.sp, weight = FontWeight.SemiBold)
     }
 }
 
@@ -539,7 +543,7 @@ private fun rememberNight(): Boolean {
 
 /** The forecast under the clock. OK on it opens the weather location panel. */
 @Composable
-private fun WeatherView(state: HomeState, source: WeatherSource, glass: MutableMap<String, GlassRect>) {
+private fun WeatherView(state: HomeState, source: WeatherSource, glass: MutableMap<String, GlassRect>, chrome: () -> Float) {
     val place = source.place
     var forecast by remember(place) { mutableStateOf(place?.let { source.cached(it) }) }
     LaunchedEffect(place) {
@@ -567,7 +571,7 @@ private fun WeatherView(state: HomeState, source: WeatherSource, glass: MutableM
     val ring = Modifier.border(2.dp, if (focused) Color(0xE6FFFFFF) else Color.Transparent, RoundedCornerShape(14.dp))
 
     // One focusable for every state below, so focus stays put when the forecast arrives.
-    Column(select, horizontalAlignment = Alignment.End) { Forecast(place, forecast, focused, ring, glass) }
+    Column(select, horizontalAlignment = Alignment.End) { Forecast(place, forecast, focused, Modifier.graphicsLayer { alpha = chrome() }.then(ring), glass) }
 }
 
 @Composable
