@@ -17,9 +17,10 @@ object Config {
     const val NIGHT_FROM = "20:00"
     const val NIGHT_TO = "06:00"
 
-    // Weather under the clock, from Open-Meteo (free, no key). Off until you set
-    // your location in glasshome.properties (see glasshome.properties.example),
-    // which stays out of git. Find coordinates with
+    // Weather under the clock, from Open-Meteo (free, no key). Set the place on
+    // the TV: select the weather (or "Set weather") and press OK, then enter a
+    // ZIP or postal code. Or build one in with glasshome.properties (see
+    // glasshome.properties.example), which stays out of git; find coordinates with
     // https://geocoding-api.open-meteo.com/v1/search?name=YOUR+TOWN
     val weather = Weather(
         enabled = BuildConfig.WEATHER_LATITUDE != 0.0 || BuildConfig.WEATHER_LONGITUDE != 0.0,

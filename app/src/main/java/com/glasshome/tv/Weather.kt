@@ -1,6 +1,9 @@
 package com.glasshome.tv
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,29 +15,97 @@ import java.util.Locale
 class Day(val name: String, val code: Int, val high: Int, val low: Int, val rainPct: Int?)
 class Forecast(val temp: Int, val code: Int, val isDay: Boolean, val days: List<Day>)
 
-/** Open-Meteo forecast, with the last answer kept so it shows straight away after a restart. */
-class WeatherSource(private val context: Context, private val cfg: Config.Weather) {
+/** Where the forecast is for. */
+data class Place(val name: String, val latitude: Double, val longitude: Double, val timezone: String, val fahrenheit: Boolean) {
+    /** Which place a saved forecast belongs to. */
+    val key get() = "$latitude,$longitude,$fahrenheit"
+}
+
+/**
+ * Open-Meteo forecast, with the last answer kept so it shows straight away after a
+ * restart. The place is set on the TV (select the weather, press OK) and kept on
+ * the device; until then it's the one built in from glasshome.properties, if any.
+ */
+class WeatherSource(context: Context, default: Config.Weather) {
     private val prefs = context.getSharedPreferences("weather", Context.MODE_PRIVATE)
 
-    fun cached(): Forecast? = prefs.getString("json", null)?.let { runCatching { parse(it) }.getOrNull() }
+    /** Null when the weather is off. */
+    var place by mutableStateOf(
+        when {
+            prefs.getBoolean("off", false) -> null
+            prefs.contains("lat") -> Place(
+                prefs.getString("name", "") ?: "",
+                prefs.getString("lat", null)?.toDoubleOrNull() ?: 0.0,
+                prefs.getString("lon", null)?.toDoubleOrNull() ?: 0.0,
+                prefs.getString("tz", "auto") ?: "auto",
+                prefs.getBoolean("fahrenheit", false),
+            )
+            default.enabled -> Place(default.place, default.latitude, default.longitude, default.timezone, default.fahrenheit)
+            else -> null
+        },
+    )
+        private set
 
-    /** Fetches a fresh forecast. Blocking: call off the main thread. */
-    fun fetch(): Forecast {
+    /** Shows [p]'s weather from now on, or none if null. */
+    fun save(p: Place?) {
+        prefs.edit().apply {
+            clear()
+            if (p == null) putBoolean("off", true)
+            else putString("name", p.name).putString("lat", p.latitude.toString()).putString("lon", p.longitude.toString())
+                .putString("tz", p.timezone).putBoolean("fahrenheit", p.fahrenheit)
+        }.apply()
+        place = p
+    }
+
+    fun cached(p: Place): Forecast? =
+        prefs.getString("json", null)?.takeIf { prefs.getString("json_for", null) == p.key }
+            ?.let { runCatching { parse(it) }.getOrNull() }
+
+    /** Fetches a fresh forecast for [p]. Blocking: call off the main thread. */
+    fun fetch(p: Place): Forecast {
         val url = "https://api.open-meteo.com/v1/forecast" +
-            "?latitude=${cfg.latitude}&longitude=${cfg.longitude}" +
+            "?latitude=${p.latitude}&longitude=${p.longitude}" +
             "&current=temperature_2m,weather_code,is_day" +
             "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-            "&forecast_days=7&timezone=${URLEncoder.encode(cfg.timezone, "UTF-8")}" +
-            if (cfg.fahrenheit) "&temperature_unit=fahrenheit" else ""
+            "&forecast_days=7&timezone=${URLEncoder.encode(p.timezone, "UTF-8")}" +
+            if (p.fahrenheit) "&temperature_unit=fahrenheit" else ""
+        val body = get(url)
+        val forecast = parse(body)
+        prefs.edit().putString("json", body).putString("json_for", p.key).apply()
+        return forecast
+    }
+
+    /**
+     * The place for a ZIP or postal code (or a town's name), from Open-Meteo's
+     * geocoding, in this TV's country first. Null if there's none. Blocking.
+     */
+    fun find(query: String): Place? {
+        val q = URLEncoder.encode(query.trim(), "UTF-8")
+        val country = Locale.getDefault().country
+        val base = "https://geocoding-api.open-meteo.com/v1/search?name=$q&count=1&language=en&format=json"
+        val o = (if (country.length == 2) results(get("$base&countryCode=$country")) else null)
+            ?: results(get(base))
+            ?: return null
+        val name = o.getString("name")
+        val region = o.optString("admin1").takeIf { it.isNotBlank() && it != name } ?: o.optString("country")
+        return Place(
+            name = if (region.isBlank()) name else "$name, $region",
+            latitude = o.getDouble("latitude"),
+            longitude = o.getDouble("longitude"),
+            timezone = o.optString("timezone").ifBlank { "auto" },
+            fahrenheit = o.optString("country_code") in Fahrenheit,
+        )
+    }
+
+    private fun results(body: String) = JSONObject(body).optJSONArray("results")?.optJSONObject(0)
+
+    private fun get(url: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 10_000
         try {
             if (conn.responseCode != 200) error("Open-Meteo HTTP ${conn.responseCode}")
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val forecast = parse(body)
-            prefs.edit().putString("json", body).apply()
-            return forecast
+            return conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
             conn.disconnect()
         }
@@ -66,6 +137,9 @@ class WeatherSource(private val context: Context, private val cfg: Config.Weathe
         )
     }
 }
+
+/** Where temperatures are given in Fahrenheit. */
+private val Fahrenheit = setOf("US", "PR", "GU", "VI", "AS", "MP", "LR", "BS", "BZ", "KY", "PW", "FM", "MH")
 
 /** WMO weather code to a label and a symbol. */
 object WeatherCodes {

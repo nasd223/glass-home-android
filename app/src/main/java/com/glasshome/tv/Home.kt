@@ -34,6 +34,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -62,32 +66,38 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -130,6 +140,8 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
     /** The quick settings panel, from the gear by the clock. */
     var settingsOpen by mutableStateOf(false)
     var quickSettings by mutableStateOf<List<TvApp>>(emptyList())
+    /** The weather location panel, from the weather under the clock. */
+    var weatherOpen by mutableStateOf(false)
     var focusedId by mutableStateOf<String?>(null)
     var focusedCenterX by mutableFloatStateOf(0f)
 
@@ -142,7 +154,7 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
     @Volatile var lastInput = SystemClock.uptimeMillis()
 
     val dock: List<TvApp> get() = dockIds.mapNotNull { installed[it] } + shortcuts
-    val overlayOpen: Boolean get() = menuFor != null || addOpen || settingsOpen
+    val overlayOpen: Boolean get() = menuFor != null || addOpen || settingsOpen || weatherOpen
 
     fun focus(id: String?) {
         focusTarget = id ?: dock.firstOrNull()?.id ?: PLUS
@@ -153,6 +165,7 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
         menuFor = null
         addOpen = false
         settingsOpen = false
+        weatherOpen = false
         ambient = false
         lastInput = SystemClock.uptimeMillis()
         focus(dock.firstOrNull()?.id)
@@ -216,6 +229,7 @@ class HomeState(private val apps: Apps, private val service: PhotoService) {
     companion object {
         const val PLUS = "@plus"
         const val GEAR = "@gear"
+        const val WEATHER = "@weather"
     }
 }
 
@@ -225,7 +239,7 @@ class GlassRect(val rect: Rect, val radius: Float) {
 }
 
 @Composable
-fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, onLaunch: (TvApp) -> Unit) {
+fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource, onLaunch: (TvApp) -> Unit) {
     val glass = remember { mutableStateMapOf<String, GlassRect>() }
     var caption by remember { mutableStateOf("") }
     val chrome by animateFloatAsState(if (state.ambient) 0f else 1f, tween(900), label = "chrome")
@@ -244,14 +258,14 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        Backdrop(photos, state.resumed, glass, { chrome }, { caption = it })
-        val dim by animateFloatAsState(if (night) 0.38f else 0f, tween(3000), label = "night")
-        if (dim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim)))
+    val dim by animateFloatAsState(if (night) 0.38f else 0f, tween(3000), label = "night")
 
-        Box(Modifier.fillMaxSize().alpha(chrome).padding(horizontal = 48.dp, vertical = 27.dp)) {
-            Brand(Modifier.align(Alignment.TopStart))
-            Column(Modifier.align(Alignment.TopEnd), horizontalAlignment = Alignment.End) {
+    Box(Modifier.fillMaxSize()) {
+        Backdrop(photos, state.resumed, glass, { chrome }, { dim }, { caption = it })
+
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = chrome }.padding(horizontal = 48.dp, vertical = 27.dp)) {
+            Brand(Modifier.align(Alignment.TopStart).cached())
+            Column(Modifier.align(Alignment.TopEnd).cached(), horizontalAlignment = Alignment.End) {
                 Row {
                     if (state.quickSettings.isNotEmpty()) {
                         GearButton(state, Modifier.padding(top = 9.dp))
@@ -259,7 +273,7 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
                     }
                     Column(horizontalAlignment = Alignment.End) { Clock() }
                 }
-                if (weather != null) WeatherView(weather, glass)
+                WeatherView(state, weather, glass)
             }
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
@@ -269,12 +283,13 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
                 FocusedLabel(state)
                 Spacer(Modifier.height(18.dp))
             }
-            Label(caption, 9.sp, Modifier.align(Alignment.BottomStart), color = Text2)
+            Label(caption, 9.sp, Modifier.align(Alignment.BottomStart).cached(), color = Text2)
         }
 
         state.menuFor?.let { id -> state.dock.firstOrNull { it.id == id }?.let { TileMenu(state, it, glass) } }
         if (state.addOpen) AddPanel(state, glass)
         if (state.settingsOpen) QuickSettingsPanel(state, glass, onLaunch)
+        if (state.weatherOpen) WeatherPanel(state, weather, glass)
     }
 }
 
@@ -283,7 +298,25 @@ fun HomeScreen(state: HomeState, photos: PhotoLibrary, weather: WeatherSource?, 
 private class Slide(val photo: Photo, var start: Long, val drift: Int)
 
 private val Drifts = listOf(Offset(-1f, 0f), Offset(1f, -0.5f), Offset(0f, 1f), Offset(1f, 0.5f))
-private val Saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.6f) })
+
+/** What the backdrop draws with, made once rather than every frame. */
+private class Paints {
+    val matrix = android.graphics.Matrix()
+    val photo = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+    val glass = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private var dim = -1f
+
+    /** Evening dimming as a colour filter on the photos: no extra full-screen layer to draw. */
+    fun dim(d: Float) {
+        if (d == dim) return
+        dim = d
+        val k = 1f - d
+        val darken = android.graphics.ColorMatrix().apply { setScale(k, k, k, 1f) }
+        photo.colorFilter = if (d > 0f) android.graphics.ColorMatrixColorFilter(darken) else null
+        val saturate = android.graphics.ColorMatrix().apply { setSaturation(1.6f); postConcat(darken) }
+        glass.colorFilter = android.graphics.ColorMatrixColorFilter(saturate)
+    }
+}
 
 @Composable
 private fun Backdrop(
@@ -291,14 +324,16 @@ private fun Backdrop(
     active: Boolean,
     glass: Map<String, GlassRect>,
     chrome: () -> Float,
+    dim: () -> Float,
     onCaption: (String) -> Unit,
 ) {
     val context = LocalContext.current
     var cur by remember { mutableStateOf<Slide?>(null) }
     var prev by remember { mutableStateOf<Slide?>(null) }
     val fade = remember { Animatable(1f) }
-    val frame = remember { mutableLongStateOf(0L) }
+    val frame = remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
     val inFront by rememberUpdatedState(active)
+    val paints = remember { Paints() }
 
     LaunchedEffect(Unit) {
         val dm = context.resources.displayMetrics
@@ -336,63 +371,106 @@ private fun Backdrop(
         }
     }
     // Redraw every frame for the slow zoom, only while the home screen is in front.
+    // The zoom follows the frame's own time (the display's vsync, on the same clock
+    // as uptimeMillis), not the moment the frame happens to be drawn, so it moves
+    // the same distance every frame instead of stuttering. (Every other frame was
+    // tried for the Chromecast HD, which drops about one frame in five even on a
+    // blank screen: it made both Chromecasts less even, not more.)
     LaunchedEffect(active) {
+        frame.longValue = SystemClock.uptimeMillis()
         if (active) while (true) withFrameMillis { frame.longValue = it }
     }
 
-    val clip = remember { Path() }
-    Canvas(Modifier.fillMaxSize()) {
-        frame.longValue
-        val now = SystemClock.uptimeMillis()
-        val p = prev
-        val c = cur
-        val f = if (p != null) fade.value else 1f
-        p?.let { drawSlide(it, it.photo.sharp, now, 1f) }
-        c?.let { drawSlide(it, it.photo.sharp, now, f) }
+    Spacer(
+        Modifier.fillMaxSize().drawWithCache {
+            val shade = shading(size, this)
+            onDrawBehind {
+                val now = frame.longValue
+                val p = prev
+                val c = cur
+                val f = if (p != null) fade.value else 1f
+                paints.dim(dim())
+                val canvas = drawContext.canvas.nativeCanvas
+                if (c == null) drawRect(Color.Black)
+                p?.let { drawSlide(canvas, it, now, 1f, paints) }
+                c?.let { drawSlide(canvas, it, now, f, paints) }
 
-        // Frosted glass: the blurred photo, inside each glass panel's shape.
-        val a = chrome()
-        if (a > 0f) for (g in glass.values) {
-            clip.rewind()
-            clip.addRoundRect(RoundRect(g.rect, CornerRadius(g.radius)))
-            clipPath(clip) {
-                p?.let { drawSlide(it, it.photo.soft, now, a, Saturate) }
-                c?.let { drawSlide(it, it.photo.soft, now, a * f, Saturate) }
+                // Frosted glass: the blurred photo, drawn in each glass panel's shape.
+                val a = chrome()
+                if (a > 0f) for (g in glass.values) {
+                    p?.let { drawGlass(canvas, it, g, now, a, paints) }
+                    c?.let { drawGlass(canvas, it, g, now, a * f, paints) }
+                }
+
+                drawImage(shade, dstSize = IntSize(size.width.toInt(), size.height.toInt()))
             }
-        }
-
-        // Shade behind the dock and the clock so text stays readable on bright photos.
-        val h = size.height
-        val w = size.width
-        drawRect(
-            Brush.verticalGradient(
-                0f to Color.Transparent, 0.28f to Color(0x1A000000), 0.62f to Color(0x57000000), 1f to Color(0x99000000),
-                startY = h * 0.45f, endY = h,
-            ),
-            topLeft = Offset(0f, h * 0.45f),
-        )
-        drawRect(Brush.radialGradient(0f to Color(0x85000000), 0.45f to Color(0x42000000), 1f to Color.Transparent, center = Offset(w, 0f), radius = w * 0.55f))
-        drawRect(Brush.radialGradient(0f to Color(0x6B000000), 0.45f to Color(0x33000000), 1f to Color.Transparent, center = Offset.Zero, radius = w * 0.4f))
-    }
+        },
+    )
 }
 
-/** Draws a photo covering the screen, zooming in slowly and drifting over its time on screen. */
-private fun DrawScope.drawSlide(s: Slide, img: ImageBitmap, now: Long, alpha: Float, filter: ColorFilter? = null) {
+/**
+ * The shade behind the dock and the clock that keeps text readable on bright
+ * photos, drawn once at a quarter of the screen's size: it's all soft gradients,
+ * so it looks the same scaled up. Drawn live, the two radial gradients alone
+ * took a Chromecast's GPU about 40 ms a frame.
+ */
+private fun shading(size: Size, density: androidx.compose.ui.unit.Density): ImageBitmap {
+    val w = size.width.coerceAtLeast(4f)
+    val h = size.height.coerceAtLeast(4f)
+    val img = ImageBitmap((w / 4).toInt().coerceAtLeast(1), (h / 4).toInt().coerceAtLeast(1))
+    CanvasDrawScope().draw(density, LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(img), Size(img.width.toFloat(), img.height.toFloat())) {
+        scale(img.width / w, img.height / h, Offset.Zero) {
+            drawRect(
+                Brush.verticalGradient(
+                    0f to Color.Transparent, 0.28f to Color(0x1A000000), 0.62f to Color(0x57000000), 1f to Color(0x99000000),
+                    startY = h * 0.45f, endY = h,
+                ),
+                topLeft = Offset(0f, h * 0.45f), size = Size(w, h * 0.55f),
+            )
+            drawRect(Brush.radialGradient(0f to Color(0x85000000), 0.45f to Color(0x42000000), 1f to Color.Transparent, center = Offset(w, 0f), radius = w * 0.55f), size = Size(w, h))
+            drawRect(Brush.radialGradient(0f to Color(0x6B000000), 0.45f to Color(0x33000000), 1f to Color.Transparent, center = Offset.Zero, radius = w * 0.4f), size = Size(w, h))
+        }
+    }
+    return img
+}
+
+/**
+ * Sets [m] to place an image [imgW] wide covering the screen, zoomed in slowly
+ * and drifting over its time on screen.
+ */
+private fun DrawScope.place(s: Slide, imgW: Int, imgH: Int, now: Long, m: android.graphics.Matrix) {
     val life = (Config.PHOTO_INTERVAL_MS + Config.FADE_MS).toFloat()
     val t = ((now - s.start) / life).coerceIn(0f, 1f)
-    val scale = max(size.width / img.width, size.height / img.height) * (1f + (Config.KEN_BURNS_SCALE - 1f) * t)
-    val extraX = img.width * scale - size.width
-    val extraY = img.height * scale - size.height
+    val scale = max(size.width / imgW, size.height / imgH) * (1f + (Config.KEN_BURNS_SCALE - 1f) * t)
+    val extraX = imgW * scale - size.width
+    val extraY = imgH * scale - size.height
     val d = Drifts[s.drift]
-    val x = -extraX / 2 + d.x * extraX * 0.4f * (2 * t - 1)
-    val y = -extraY / 2 + d.y * extraY * 0.4f * (2 * t - 1)
-    withTransform({
-        translate(x, y)
-        scale(scale, scale, Offset.Zero)
-    }) {
-        drawImage(img, alpha = alpha, colorFilter = filter)
-    }
+    m.setScale(scale, scale)
+    m.postTranslate(-extraX / 2 + d.x * extraX * 0.4f * (2 * t - 1), -extraY / 2 + d.y * extraY * 0.4f * (2 * t - 1))
 }
+
+private fun DrawScope.drawSlide(canvas: android.graphics.Canvas, s: Slide, now: Long, alpha: Float, paints: Paints) {
+    val img = s.photo.sharp
+    place(s, img.width, img.height, now, paints.matrix)
+    paints.photo.alpha = (alpha * 255).toInt()
+    canvas.drawBitmap(img, paints.matrix, paints.photo)
+}
+
+private fun DrawScope.drawGlass(canvas: android.graphics.Canvas, s: Slide, g: GlassRect, now: Long, alpha: Float, paints: Paints) {
+    val img = s.photo.soft
+    place(s, img.width, img.height, now, paints.matrix)
+    s.photo.softShader.setLocalMatrix(paints.matrix)
+    paints.glass.shader = s.photo.softShader
+    paints.glass.alpha = (alpha * 255).toInt()
+    canvas.drawRoundRect(g.rect.left, g.rect.top, g.rect.right, g.rect.bottom, g.radius, g.radius, paints.glass)
+}
+
+/**
+ * Keeps this part as a texture that's only redrawn when it changes (the clock
+ * each second, a focus move). Otherwise each label's blurred shadow is drawn
+ * again on every frame of the photos' slow zoom.
+ */
+private fun Modifier.cached() = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
 
 /** Marks a panel as frosted glass: the backdrop draws the blurred photo behind it. */
 private fun Modifier.glass(id: String, glass: MutableMap<String, GlassRect>, radius: Dp, tint: Color = GlassTint) = composed {
@@ -417,10 +495,10 @@ private fun Brand(modifier: Modifier) {
         Canvas(Modifier.size(40.dp, 30.dp)) {
             // app/img/brand-glyph.svg from the Samsung version, viewBox 660 x 500.
             val s = size.width / 660f
-            drawRoundRect(Color(0x1AFFFFFF), Offset(20 * s, 17 * s), androidx.compose.ui.geometry.Size(620 * s, 410 * s), CornerRadius(70 * s))
-            drawRoundRect(Mint, Offset(20 * s, 17 * s), androidx.compose.ui.geometry.Size(620 * s, 410 * s), CornerRadius(70 * s), style = Stroke(34 * s))
-            drawRoundRect(Mint.copy(alpha = 0.9f), Offset(150 * s, 302 * s), androidx.compose.ui.geometry.Size(360 * s, 66 * s), CornerRadius(33 * s))
-            drawRoundRect(Mint, Offset(240 * s, 464 * s), androidx.compose.ui.geometry.Size(180 * s, 30 * s), CornerRadius(15 * s))
+            drawRoundRect(Color(0x1AFFFFFF), Offset(20 * s, 17 * s), Size(620 * s, 410 * s), CornerRadius(70 * s))
+            drawRoundRect(Mint, Offset(20 * s, 17 * s), Size(620 * s, 410 * s), CornerRadius(70 * s), style = Stroke(34 * s))
+            drawRoundRect(Mint.copy(alpha = 0.9f), Offset(150 * s, 302 * s), Size(360 * s, 66 * s), CornerRadius(33 * s))
+            drawRoundRect(Mint, Offset(240 * s, 464 * s), Size(180 * s, 30 * s), CornerRadius(15 * s))
         }
         Spacer(Modifier.width(10.dp))
         Label("Glass Home", 23.sp, weight = FontWeight.SemiBold)
@@ -459,19 +537,50 @@ private fun rememberNight(): Boolean {
     return night
 }
 
+/** The forecast under the clock. OK on it opens the weather location panel. */
 @Composable
-private fun WeatherView(source: WeatherSource, glass: MutableMap<String, GlassRect>) {
-    var forecast by remember { mutableStateOf(source.cached()) }
-    LaunchedEffect(Unit) {
+private fun WeatherView(state: HomeState, source: WeatherSource, glass: MutableMap<String, GlassRect>) {
+    val place = source.place
+    var forecast by remember(place) { mutableStateOf(place?.let { source.cached(it) }) }
+    LaunchedEffect(place) {
+        if (place == null) return@LaunchedEffect
         while (true) {
-            val ok = runCatching { withContext(Dispatchers.IO) { source.fetch() } }.onSuccess { forecast = it }.isSuccess
+            val ok = runCatching { withContext(Dispatchers.IO) { source.fetch(place) } }.onSuccess { forecast = it }.isSuccess
             // At power-on the Wi-Fi is often not up yet: retry soon rather than in half an hour.
             delay(if (ok) Config.weather.refreshMs else 60_000)
         }
     }
-    val f = forecast ?: return
-    val today = f.days.firstOrNull()
+    var focused by remember { mutableStateOf(false) }
+    val select = Modifier
+        .focusRequester(state.requester(HomeState.WEATHER))
+        .focusProperties {
+            canFocus = !state.overlayOpen
+            // Down goes to the first tile, not the one nearest the weather.
+            down = state.requester(state.dock.firstOrNull()?.id ?: HomeState.PLUS)
+        }
+        .onFocusChanged {
+            focused = it.isFocused
+            if (it.isFocused) state.focusedId = HomeState.WEATHER
+        }
+        .tvClick { state.weatherOpen = true }
+        .focusable()
+    val ring = Modifier.border(2.dp, if (focused) Color(0xE6FFFFFF) else Color.Transparent, RoundedCornerShape(14.dp))
+
+    // One focusable for every state below, so focus stays put when the forecast arrives.
+    Column(select, horizontalAlignment = Alignment.End) { Forecast(place, forecast, focused, ring, glass) }
+}
+
+@Composable
+private fun Forecast(place: Place?, f: Forecast?, focused: Boolean, ring: Modifier, glass: MutableMap<String, GlassRect>) {
     Spacer(Modifier.height(12.dp))
+    if (place == null || f == null) {
+        // No place yet (or its first forecast still coming): a button to set one.
+        Box(ring.glass("weather", glass, 14.dp).padding(horizontal = 14.dp, vertical = 9.dp)) {
+            Label(if (place == null) "☁️  Set weather location" else "${place.name} · Loading weather…", 13.sp, weight = FontWeight.SemiBold)
+        }
+        return
+    }
+    val today = f.days.firstOrNull()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Label(WeatherCodes.symbol(f.code, f.isDay), 18.sp)
         Spacer(Modifier.width(8.dp))
@@ -484,7 +593,10 @@ private fun WeatherView(source: WeatherSource, glass: MutableMap<String, GlassRe
         Label(rest, 14.sp, color = Text2)
     }
     Spacer(Modifier.height(10.dp))
-    Column(Modifier.glass("weather", glass, 14.dp).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.End) {
+    Column(
+        ring.glass("weather", glass, 14.dp).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             f.days.take(7).forEach { d ->
                 Column(Modifier.width(34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -496,8 +608,10 @@ private fun WeatherView(source: WeatherSource, glass: MutableMap<String, GlassRe
                 }
             }
         }
-        val place = Config.weather.place
-        Label(if (place.isBlank()) "Weather: Open-Meteo" else "$place · Weather: Open-Meteo", 7.sp, color = Color(0x73FFFFFF))
+        Label(
+            if (focused) "OK to change the location" else listOf(place.name, "Weather: Open-Meteo").filter { it.isNotBlank() }.joinToString(" · "),
+            7.sp, color = if (focused) Color.White else Color(0x73FFFFFF),
+        )
     }
 }
 
@@ -600,10 +714,10 @@ private fun Dock(state: HomeState, glass: MutableMap<String, GlassRect>, onLaunc
 
 @Composable
 private fun FocusedLabel(state: HomeState) {
-    val name = when (val id = state.focusedId) {
-        null -> ""
-        HomeState.PLUS -> "Add"
-        HomeState.GEAR -> ""
+    val id = state.focusedId
+    val name = when {
+        id == null || state.overlayOpen -> ""
+        id == HomeState.PLUS -> "Add"
         else -> state.dock.firstOrNull { it.id == id }?.label ?: ""
     }
     Box(Modifier.fillMaxWidth().height(28.dp)) {
@@ -707,10 +821,10 @@ private fun GearButton(state: HomeState, modifier: Modifier) {
 @Composable
 private fun GearIcon(modifier: Modifier, color: Color) {
     // Its own layer, so clearing the centre hole only clears the gear.
-    Canvas(modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }) {
+    Canvas(modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         val c = center
         val r = size.minDimension / 2
-        val tooth = androidx.compose.ui.geometry.Size(r * 0.42f, r * 0.5f)
+        val tooth = Size(r * 0.42f, r * 0.5f)
         repeat(8) { i ->
             rotate(i * 45f, c) {
                 drawRoundRect(color, Offset(c.x - tooth.width / 2, c.y - r), tooth, CornerRadius(r * 0.08f))
@@ -723,7 +837,7 @@ private fun GearIcon(modifier: Modifier, color: Color) {
 
 // ---------- overlays ----------
 
-/** Quick settings: below the clock, opened from the gear. */
+/** Quick settings: a row of icons below the clock, opened from the gear. */
 @Composable
 private fun QuickSettingsPanel(state: HomeState, glass: MutableMap<String, GlassRect>, onLaunch: (TvApp) -> Unit) {
     val close = { state.settingsOpen = false; state.focus(HomeState.GEAR) }
@@ -732,17 +846,152 @@ private fun QuickSettingsPanel(state: HomeState, glass: MutableMap<String, Glass
     LaunchedEffect(Unit) { awaitFrame(); runCatching { first.requestFocus() } }
 
     Box(Modifier.fillMaxSize().background(Color(0x40000000)).padding(horizontal = 48.dp, vertical = 27.dp)) {
-        Column(
-            Modifier.align(Alignment.TopEnd).padding(top = 84.dp).width(280.dp)
-                .glass("quick", glass, 20.dp, GlassStrong).padding(10.dp),
+        Row(
+            Modifier.align(Alignment.TopEnd).padding(top = 84.dp)
+                .glass("quick", glass, 32.dp, GlassStrong).padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Label("Quick settings", 15.sp, Modifier.padding(10.dp, 6.dp, 10.dp, 8.dp), weight = FontWeight.SemiBold)
             state.quickSettings.forEachIndexed { i, item ->
-                MenuItem(item.label, if (i == 0) Modifier.focusRequester(first) else Modifier) {
+                IconButton(item.id.removePrefix("@qs:"), if (i == 0) Modifier.focusRequester(first) else Modifier) {
                     close()                 // so Back from the screen lands on the gear
                     onLaunch(item)
                 }
             }
+        }
+    }
+}
+
+/** A round quick settings button, white when focused like the gear. */
+@Composable
+private fun IconButton(icon: String, modifier: Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier
+            .size(44.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .tvClick(onClick = onClick)
+            .focusable()
+            // clip, not background(shape): its layer keeps each button cached, which
+            // measured smoother on the 4K Chromecast.
+            .clip(CircleShape)
+            .background(if (focused) Color.White else Color(0x33FFFFFF)),
+    ) {
+        SettingIcon(icon, Modifier.align(Alignment.Center).size(22.dp), if (focused) Color(0xFF1C1C1E) else Color.White)
+    }
+}
+
+private val WifiArcs = floatArrayOf(0.3f, 0.55f, 0.8f)
+private val SliderKnobs = floatArrayOf(0.3f, 0.7f, 0.45f)
+
+/** The quick settings icons (ids from QuickSettings), drawn like the gear. */
+@Composable
+private fun SettingIcon(icon: String, modifier: Modifier, color: Color) {
+    Canvas(modifier) {
+        val w = size.width
+        val line = Stroke(w * 0.1f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        when (icon) {
+            "wifi" -> {
+                val c = Offset(w / 2, w * 0.78f)
+                for (r in WifiArcs) {
+                    drawArc(color, 225f, 90f, false, Offset(c.x - r * w * 0.6f, c.y - r * w * 0.6f), Size(r * w * 1.2f, r * w * 1.2f), style = line)
+                }
+                drawCircle(color, w * 0.08f, c)
+            }
+            "display" -> {
+                drawRoundRect(color, Offset(w * 0.05f, w * 0.12f), Size(w * 0.9f, w * 0.6f), CornerRadius(w * 0.08f), style = line)
+                drawLine(color, Offset(w * 0.3f, w * 0.9f), Offset(w * 0.7f, w * 0.9f), line.width, line.cap)
+            }
+            "apps" -> for (x in 0..1) for (y in 0..1) {
+                drawRoundRect(color, Offset(w * (0.06f + x * 0.5f), w * (0.06f + y * 0.5f)), Size(w * 0.38f, w * 0.38f), CornerRadius(w * 0.08f))
+            }
+            // Sliders, as the gear already means "settings".
+            else -> SliderKnobs.forEachIndexed { i, knob ->
+                val y = w * (0.2f + i * 0.3f)
+                drawLine(color, Offset(w * 0.06f, y), Offset(w * 0.94f, y), line.width, line.cap)
+                drawCircle(color, w * 0.12f, Offset(w * knob, y))
+            }
+        }
+    }
+}
+
+/** The weather location: a ZIP or postal code, looked up on Open-Meteo. Opened from the weather. */
+@Composable
+private fun WeatherPanel(state: HomeState, source: WeatherSource, glass: MutableMap<String, GlassRect>) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val close = { keyboard?.hide(); state.weatherOpen = false; state.focus(HomeState.WEATHER) }
+    BackHandler { close() }
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val field = remember { FocusRequester() }
+    val save = remember { FocusRequester() }
+    LaunchedEffect(Unit) { awaitFrame(); runCatching { field.requestFocus() }; keyboard?.show() }
+    val place = source.place
+
+    val lookUp = lookUp@{
+        val q = text.trim()
+        if (q.length < 2 || busy) return@lookUp
+        keyboard?.hide()        // so an error below can be seen
+        busy = true
+        status = null
+        scope.launch {
+            val found = runCatching { withContext(Dispatchers.IO) { source.find(q) } }
+            busy = false
+            found.onSuccess {
+                if (it == null) status = "Couldn't find \"$q\". Check it and try again."
+                else { source.save(it); close() }
+            }.onFailure { status = "Couldn't reach Open-Meteo. Is the TV online?" }
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color(0x40000000)).padding(horizontal = 48.dp, vertical = 27.dp)) {
+        Column(
+            Modifier.align(Alignment.TopEnd).padding(top = 84.dp).width(300.dp)
+                // Nearly opaque: it sits over the forecast, which would show through.
+                .glass("weatherPanel", glass, 20.dp, Color(0xF51C1C1E)).padding(10.dp),
+        ) {
+            Label("Weather location", 15.sp, Modifier.padding(10.dp, 6.dp, 10.dp, 2.dp), weight = FontWeight.SemiBold)
+            Label(place?.let { "Now: ${it.name}" } ?: "The weather is off.", 12.sp, Modifier.padding(horizontal = 10.dp), color = Text2)
+            Spacer(Modifier.height(10.dp))
+            var focused by remember { mutableStateOf(false) }
+            BasicTextField(
+                text,
+                { text = it.take(24) },
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp).focusRequester(field).onFocusChanged { focused = it.isFocused }
+                    // A remote's Down leaves the field for Save; OK brings the keyboard back, or looks up what's typed.
+                    .onPreviewKeyEvent {
+                        if (it.nativeKeyEvent.action != AndroidKeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+                        when (it.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { runCatching { save.requestFocus() }; true }
+                            // Some remotes send Enter for OK: with nothing typed yet, it opens the keyboard too.
+                            in SelectKeys -> { if (text.isBlank()) keyboard?.show() else lookUp(); true }
+                            else -> false
+                        }
+                    }
+                    .clip(RoundedCornerShape(12.dp)).background(Color(0x1FFFFFFF))
+                    .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xE6FFFFFF) else GlassBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                cursorBrush = SolidColor(Color.White),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { lookUp() }),
+                decorationBox = { inner ->
+                    Box {
+                        if (text.isEmpty()) Label("ZIP or postal code", 18.sp, color = Color(0x66FFFFFF))
+                        inner()
+                    }
+                },
+            )
+            status?.let { Label(it, 12.sp, Modifier.padding(10.dp, 8.dp, 10.dp, 0.dp), color = Color(0xFFFFB4A8)) }
+            Spacer(Modifier.height(6.dp))
+            MenuItem(if (busy) "Looking up…" else "Save", Modifier.focusRequester(save)) { lookUp() }
+            if (place != null) {
+                MenuItem(if (place.fahrenheit) "Show °C" else "Show °F") { source.save(place.copy(fahrenheit = !place.fahrenheit)) }
+                MenuItem("Turn off weather") { source.save(null); close() }
+            }
+            MenuItem("Cancel") { close() }
         }
     }
 }

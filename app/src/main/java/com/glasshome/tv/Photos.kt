@@ -3,11 +3,12 @@ package com.glasshome.tv
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.BitmapShader
+import android.graphics.Shader
 import org.json.JSONArray
 import java.io.File
 import java.time.LocalDate
+import kotlin.math.max
 import kotlin.random.Random
 
 /** A bundled photo ([asset]) or one uploaded from a phone ([upload]). */
@@ -18,7 +19,10 @@ class Wallpaper(val asset: String?, val upload: File?, val title: String, val au
  * copy that the glass panels draw behind themselves. Blurring once per photo
  * keeps the frosted look cheap enough for a Chromecast's GPU.
  */
-class Photo(val sharp: ImageBitmap, val soft: ImageBitmap, val caption: String)
+class Photo(val sharp: Bitmap, val soft: Bitmap, val caption: String) {
+    /** The blurred copy as a shader, so a glass panel is one rounded rectangle to draw, not a clip. */
+    val softShader = BitmapShader(soft, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+}
 
 /**
  * The bundled CC0 photos and the ones uploaded from a phone, shuffled together
@@ -68,11 +72,25 @@ class PhotoLibrary(private val context: Context) {
         var sample = 1
         while (bounds.outWidth / (sample * 2) >= screenW && bounds.outHeight / (sample * 2) >= screenH) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-        val sharp = open().use { BitmapFactory.decodeStream(it, null, opts) }
+        val decoded = open().use { BitmapFactory.decodeStream(it, null, opts) }
             ?: error("Can't decode ${w.asset ?: w.upload}")
+        // No bigger than the slow zoom needs: a photo up to twice the screen's
+        // size costs the GPU up to four times as much to draw, every frame.
+        val cover = max(screenW.toFloat() / decoded.width, screenH.toFloat() / decoded.height) * Config.KEN_BURNS_SCALE
+        val sized = if (cover >= 0.9f) decoded else Bitmap.createScaledBitmap(
+            decoded, (decoded.width * cover).toInt().coerceAtLeast(1), (decoded.height * cover).toInt().coerceAtLeast(1), true,
+        )
+        val soft = blurred(sized)
+        // Uploaded to the GPU here, off the main thread, rather than on the first
+        // frame of the cross-fade, where it would stall it.
+        val sharp = sized.copy(Bitmap.Config.HARDWARE, false) ?: sized
+        soft.prepareToDraw()
+        // The software copies are 8 to 30 MB each: free them now rather than at the next GC.
+        if (decoded !== sized && decoded !== soft) decoded.recycle()
+        if (sized !== sharp && sized !== soft) sized.recycle()
         // Credits for the bundled photos; your own photos need none.
         val caption = if (w.asset == null) "" else listOf(w.title, w.author, "CC0").filter { it.isNotBlank() }.joinToString(" · ")
-        return Photo(sharp.asImageBitmap(), blurred(sharp).asImageBitmap(), caption)
+        return Photo(sharp, soft, caption)
     }
 
     /** A 240 px wide copy with a three-pass box blur (close to a Gaussian). */

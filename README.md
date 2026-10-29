@@ -13,8 +13,10 @@ below are from the Google TV emulator.*
   same 12 CC0 nature photos mixed with your own, shuffled once a day.
 - A frosted-glass dock of your apps (each app's own TV banner), then your
   website and YouTube shortcuts, then **+**.
-- Clock and date, and optionally the weather (now plus 7 days, from
-  [Open-Meteo](https://open-meteo.com/), no account or key).
+- Clock and date, and the weather (now plus 7 days, from
+  [Open-Meteo](https://open-meteo.com/), no account or key). Select it (or
+  **Set weather location**) and press OK to enter a ZIP or postal code; it
+  picks °F or °C by country, and the panel can switch units or turn it off.
 - A screensaver (only the photos after 3 minutes idle; the first button press
   just wakes the screen) and dimmed photos in the evening.
 - **+** shows the address and password of the TV's photo website. Open it on
@@ -28,8 +30,8 @@ below are from the Google TV emulator.*
 
 **Just want to try it?** Download the APK from
 [Releases](https://github.com/nasd223/glass-home-android/releases) and
-`adb install` it (weather is off in the release build). For the weather, the
-Home button and the YouTube button, build it yourself:
+`adb install` it, then set the weather location on the TV. For the Home
+button and the YouTube button, build it yourself:
 
 You need a computer on the same Wi-Fi as the Chromecast, with a JDK 17 and the
 Android SDK (`brew install openjdk@17 && brew install --cask android-commandlinetools`).
@@ -38,9 +40,10 @@ Android SDK (`brew install openjdk@17 && brew install --cask android-commandline
    OS build** seven times. Then **Settings > System > Developer options**, turn
    on **USB debugging** or **Wireless debugging**. Note the IP address (and, for
    Wireless debugging, the port it shows).
-2. For the weather, copy `glasshome.properties.example` to
-   `glasshome.properties` and set your place (it stays out of git). Other
-   options are in [`Config.kt`](app/src/main/java/com/glasshome/tv/Config.kt).
+2. Optional: to build a weather location in, copy `glasshome.properties.example`
+   to `glasshome.properties` and set your place (it stays out of git). A place
+   set on the TV replaces it. Other options are in
+   [`Config.kt`](app/src/main/java/com/glasshome/tv/Config.kt).
 3. `scripts/install.sh <tv-ip>[:port]` builds and installs it. Accept the
    "Allow debugging?" prompt on the TV the first time.
 4. `scripts/install.sh <tv-ip>[:port] --home` makes the Home button open Glass Home.
@@ -80,8 +83,9 @@ screen. `--home` gets around that by disabling Google's launcher
 
 ### Quick settings
 
-The gear beside the clock opens Wi-Fi, Display & Sound, Apps and All settings
-(any your TV doesn't have are left out). There's no "clear background apps":
+The gear beside the clock opens a row of icons: Wi-Fi, Display & Sound (a
+screen), Apps (four squares) and All settings (sliders). Any your TV doesn't
+have are left out. There's no "clear background apps":
 since Android 14 an app can only end its own background processes, so **Apps**
 opens the system list instead, where you can Force stop an app. Android TV
 also closes background apps by itself when it needs the memory.
@@ -124,7 +128,8 @@ phone out.
 
 ## Settings
 
-Weather location and units in `glasshome.properties` (see above). The rest in
+Weather location and units on the TV (select the weather, press OK), or built
+in with `glasshome.properties` (see above). The rest in
 [`Config.kt`](app/src/main/java/com/glasshome/tv/Config.kt): photo timing,
 screensaver delay, evening dimming hours, and the apps in the dock on first
 start. After the first start the dock is

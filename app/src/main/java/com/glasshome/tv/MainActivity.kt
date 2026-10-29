@@ -31,10 +31,13 @@ class MainActivity : ComponentActivity() {
         state = HomeState(apps, service)
         state.quickSettings = QuickSettings.items(packageManager)
         photos = PhotoLibrary(this)
-        val weather = if (Config.weather.enabled) WeatherSource(this, Config.weather) else null
+        val weather = WeatherSource(this, Config.weather)
         setContent {
             HomeScreen(state, photos, weather, ::launch)
         }
+        // The photos cover the whole screen: drawing the black window behind them
+        // too would be one more full-screen layer for the GPU every frame.
+        window.setBackgroundDrawable(null)
         // Photos, shortcuts and the password change from the phone at any time.
         lifecycleScope.launch {
             service.revision.collectLatest { refreshPhone() }

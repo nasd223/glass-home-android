@@ -29,8 +29,8 @@ android {
         // Chromecast with Google TV runs Android TV 12 or later.
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
 
         buildConfigField("String", "WEATHER_PLACE", localString("weather.place", ""))
         buildConfigField("double", "WEATHER_LATITUDE", localDouble("weather.latitude"))
